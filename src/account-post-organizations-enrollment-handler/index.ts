@@ -7,6 +7,7 @@ import httpJsonBodyParser from "@middy/http-json-body-parser";
 import { diContainer } from "../core/di-registry";
 import * as yup from "yup";
 import schemaValidatorMiddleware from "../middlewares/schema-validator.middleware";
+import customErrorHandler from "../middlewares/custom-error-handler.middleware";
 
 import {
   Context,
@@ -26,7 +27,6 @@ const lambdaHandler = async function (
 ): Promise<APIGatewayProxyResult> {
   const sesService = diContainer.resolve(SESService);
   await sesService.sendOrganizationEnrollmentEmail(event.body);
-
   return {
     statusCode: 200,
     body: JSON.stringify(event.body),
@@ -51,13 +51,14 @@ const inputSchema = {
 const handler = middy(lambdaHandler)
   .use(httpJsonBodyParser())
   .use(httpResponseSerializer())
-  .use(httpErrorHandler())
   .use(schemaValidatorMiddleware(inputSchema))
+  .use(httpErrorHandler())
   .use(
     cors({
+      origin: "*",
       methods: "GET, PUT, PATCH, POST, DELETE, OPTIONS",
       headers:
-        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-AgentContent-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent",
+        "Content-Type, X-Amz-Date, Authorization, X-Api-Key, X-Amz-Security-Token, X-Amz-User-AgentContent-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent",
     })
   );
 

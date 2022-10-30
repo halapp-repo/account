@@ -25,6 +25,7 @@
     "typescript": "~3.9.7"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.199.0",
     "@aws-sdk/client-ses": "^3.199.0",
     "@middy/core": "^3.6.2",
     "@middy/http-cors": "^3.6.2",

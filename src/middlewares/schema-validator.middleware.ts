@@ -31,7 +31,7 @@ const schemaValidatorMiddleware = (schema: {
       } else {
         message = String(e);
       }
-      throw createHttpError(400, message);
+      throw createHttpError(400, JSON.stringify({ error: message }));
     }
   };
 

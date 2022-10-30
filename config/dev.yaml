@@ -4,3 +4,4 @@ Environment: DEVELOPMENT
 Region: eu-central-1
 SESFromEmail: no-reply@halapp.io
 SESCCEmail: furkan.ozdeslik@gmail.com
+S3OrganizationEnrollmentEmailTemplate: organization-enrollment.ejs

@@ -5,6 +5,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, LogLevel } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as path from "path";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import getConfig from "../config";
 import { BuildConfig } from "./build-config";
 
@@ -13,6 +14,10 @@ export class HalappAccountStack extends cdk.Stack {
     super(scope, id, props);
 
     const buildConfig = getConfig(scope as cdk.App);
+    // **************
+    // Create Bucket
+    // **************
+    const emailTemplateBucket = this.createEmailTemplateBucket();
     // ********************
     // Create API Gateway
     // ********************
@@ -20,14 +25,10 @@ export class HalappAccountStack extends cdk.Stack {
     const organizationsResource = accountApi.root.addResource("organizations");
     const organizationsEnrollmentResource =
       organizationsResource.addResource("enrollment");
-    // ***************************
-    // Create Lambda Handler
-    // ***************************
-    //
-    // ****ORGANIZATION API Handler****
-    //
+
     this.createOrganizationEnrollmentHandler(
       organizationsEnrollmentResource,
+      emailTemplateBucket,
       buildConfig
     );
   }
@@ -39,8 +40,12 @@ export class HalappAccountStack extends cdk.Stack {
   }
   createOrganizationEnrollmentHandler(
     organizationsEnrollmentResource: cdk.aws_apigateway.Resource,
+    emailTemplateBucket: cdk.aws_s3.Bucket,
     buildConfig: BuildConfig
   ): cdk.aws_lambda_nodejs.NodejsFunction {
+    // ***************************
+    // Create Lambda Handler
+    // ***************************
     organizationsEnrollmentResource.addCorsPreflight({
       allowHeaders: [
         "Content-Type",
@@ -73,8 +78,10 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
+          S3BucketName: emailTemplateBucket.bucketName,
           SESFromEmail: buildConfig.SESFromEmail,
           SESToEmail: buildConfig.SESCCEmail,
+          EmailTemplate: buildConfig.S3OrganizationEnrollmentEmailTemplate,
         },
       }
     );
@@ -95,6 +102,15 @@ export class HalappAccountStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
       })
     );
+    emailTemplateBucket.grantRead(organizationsEnrollmentHandler);
     return organizationsEnrollmentHandler;
+  }
+  createEmailTemplateBucket(): cdk.aws_s3.Bucket {
+    const emailTemplateBucket = new s3.Bucket(this, "HalEmailTemplate", {
+      bucketName: `hal-emailtemplate-${this.account}`,
+      autoDeleteObjects: false,
+      versioned: true,
+    });
+    return emailTemplateBucket;
   }
 }
