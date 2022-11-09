@@ -7,7 +7,6 @@ import httpJsonBodyParser from "@middy/http-json-body-parser";
 import { diContainer } from "../core/di-registry";
 import * as yup from "yup";
 import schemaValidatorMiddleware from "../middlewares/schema-validator.middleware";
-import customErrorHandler from "../middlewares/custom-error-handler.middleware";
 
 import {
   Context,
@@ -51,8 +50,8 @@ const inputSchema = {
 const handler = middy(lambdaHandler)
   .use(httpJsonBodyParser())
   .use(httpResponseSerializer())
-  .use(schemaValidatorMiddleware(inputSchema))
   .use(httpErrorHandler())
+  .use(schemaValidatorMiddleware(inputSchema))
   .use(
     cors({
       origin: "*",
@@ -61,5 +60,4 @@ const handler = middy(lambdaHandler)
         "Content-Type, X-Amz-Date, Authorization, X-Api-Key, X-Amz-Security-Token, X-Amz-User-AgentContent-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent",
     })
   );
-
 export { handler, lambdaHandler };
