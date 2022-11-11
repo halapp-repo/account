@@ -6,4 +6,5 @@ export interface BuildConfig {
   readonly SESFromEmail: string;
   readonly SESCCEmail: string;
   readonly S3OrganizationEnrollmentEmailTemplate: string;
+  readonly SQSOrganizationCreatedQueueArn: string;
 }

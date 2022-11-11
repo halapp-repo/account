@@ -7,7 +7,7 @@ import httpJsonBodyParser from "@middy/http-json-body-parser";
 import { diContainer } from "../core/di-registry";
 import * as yup from "yup";
 import schemaValidatorMiddleware from "../middlewares/schema-validator.middleware";
-
+import { Organization } from "../models/organization";
 import {
   Context,
   APIGatewayProxyResult,
@@ -15,6 +15,8 @@ import {
 } from "aws-lambda";
 import { SESService } from "../services/ses.service";
 import { OrganizationEnrollmentDTO } from "../models/dto/organization-enrollment.dto";
+import OrganizationRepository from "../repositories/organization.repository";
+import { SNSService } from "../services/sns.service";
 
 interface Event<TBody> extends Omit<APIGatewayProxyEventV2, "body"> {
   body: TBody;
@@ -25,7 +27,47 @@ const lambdaHandler = async function (
   context: Context
 ): Promise<APIGatewayProxyResult> {
   const sesService = diContainer.resolve(SESService);
-  await sesService.sendOrganizationEnrollmentEmail(event.body);
+  const orgRepo = diContainer.resolve(OrganizationRepository);
+  const snsService = diContainer.resolve(SNSService);
+  // Create Organization
+  const {
+    organizationName,
+    formattedAddress,
+    city,
+    county,
+    country,
+    email,
+    phoneNumber,
+    zipCode,
+  } = event.body;
+  const organization = new Organization();
+  organization.createOrganization({
+    organizationName,
+    formattedAddress,
+    city,
+    county,
+    country,
+    email,
+    phoneNumber,
+    zipCode,
+  });
+  console.log("Organization creating");
+  await orgRepo.saveOrg(organization);
+  // Publish Message with SNS
+  console.log("Sending OrganizationCreated message");
+  await snsService.sendOrganizationCreatedMessage({
+    organizationName: organization.Name,
+    organizationID: organization.ID,
+  });
+  // Send Message to Us
+  console.log("Creating Message");
+  await sesService.sendNewOrganizationCreatedEmail({
+    email,
+    formattedAddress,
+    organizationID: organization.ID,
+    organizationName,
+    phoneNumber,
+  });
   return {
     statusCode: 200,
     body: JSON.stringify(event.body),
@@ -50,7 +92,11 @@ const inputSchema = {
 const handler = middy(lambdaHandler)
   .use(httpJsonBodyParser())
   .use(httpResponseSerializer())
-  .use(httpErrorHandler())
+  .use(
+    httpErrorHandler({
+      fallbackMessage: "Bilinmeyen hata",
+    })
+  )
   .use(schemaValidatorMiddleware(inputSchema))
   .use(
     cors({

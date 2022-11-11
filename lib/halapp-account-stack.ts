@@ -6,18 +6,45 @@ import { NodejsFunction, LogLevel } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as path from "path";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+
+import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import getConfig from "../config";
 import { BuildConfig } from "./build-config";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import {
+  ArnPrincipal,
+  Effect,
+  PolicyStatement,
+  ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
 
 export class HalappAccountStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-
+    //*****************
+    // BUILD CONFIG
+    //******************
     const buildConfig = getConfig(scope as cdk.App);
+
+    //************
+    // Import Email Template Bucket
+    //************
+    const importedEmailTemplateBucket = s3.Bucket.fromBucketName(
+      this,
+      `imported-hal-email-template-${this.account}`,
+      `hal-email-template-${this.account}`
+    );
+
+    // *************
+    // Create SNS (Organization Created)
+    // *************
+    const organizationCreatedTopic = this.createSNSTopic(buildConfig);
     // **************
-    // Create Bucket
+    // Create AccountDB
     // **************
-    const emailTemplateBucket = this.createEmailTemplateBucket();
+    const accountDB = this.createAccountTable();
     // ********************
     // Create API Gateway
     // ********************
@@ -28,7 +55,9 @@ export class HalappAccountStack extends cdk.Stack {
 
     this.createOrganizationEnrollmentHandler(
       organizationsEnrollmentResource,
-      emailTemplateBucket,
+      organizationCreatedTopic,
+      accountDB,
+      importedEmailTemplateBucket,
       buildConfig
     );
   }
@@ -40,7 +69,9 @@ export class HalappAccountStack extends cdk.Stack {
   }
   createOrganizationEnrollmentHandler(
     organizationsEnrollmentResource: cdk.aws_apigateway.Resource,
-    emailTemplateBucket: cdk.aws_s3.Bucket,
+    organizationCreatedTopic: cdk.aws_sns.Topic,
+    accountDB: cdk.aws_dynamodb.Table,
+    importedEmailTemplateBucket: cdk.aws_s3.IBucket,
     buildConfig: BuildConfig
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     // ***************************
@@ -78,10 +109,13 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
-          S3BucketName: emailTemplateBucket.bucketName,
+          Region: buildConfig.Region,
+          AccountDB: accountDB.tableName,
+          S3BucketName: importedEmailTemplateBucket.bucketName,
           SESFromEmail: buildConfig.SESFromEmail,
-          SESToEmail: buildConfig.SESCCEmail,
+          SESCCEmail: buildConfig.SESCCEmail,
           EmailTemplate: buildConfig.S3OrganizationEnrollmentEmailTemplate,
+          SNSOrganizationCreatedTopicArn: organizationCreatedTopic.topicArn,
         },
       }
     );
@@ -102,15 +136,59 @@ export class HalappAccountStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
       })
     );
-    emailTemplateBucket.grantRead(organizationsEnrollmentHandler);
+    importedEmailTemplateBucket.grantRead(organizationsEnrollmentHandler);
+    accountDB.grantReadWriteData(organizationsEnrollmentHandler);
+    organizationCreatedTopic.grantPublish(organizationsEnrollmentHandler);
     return organizationsEnrollmentHandler;
   }
-  createEmailTemplateBucket(): cdk.aws_s3.Bucket {
-    const emailTemplateBucket = new s3.Bucket(this, "HalEmailTemplate", {
-      bucketName: `hal-emailtemplate-${this.account}`,
-      autoDeleteObjects: false,
-      versioned: true,
+  createAccountTable(): cdk.aws_dynamodb.Table {
+    const accountTable = new dynamodb.Table(this, "HalAccountDB", {
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      tableName: "HalAccount",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      partitionKey: {
+        name: "AccountId",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "TS",
+        type: dynamodb.AttributeType.STRING,
+      },
+      pointInTimeRecovery: true,
     });
-    return emailTemplateBucket;
+    accountTable.addGlobalSecondaryIndex({
+      indexName: "EventTypeIndex",
+      partitionKey: {
+        name: "EventType",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "TS",
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    return accountTable;
+  }
+  createSNSTopic(buildConfig: BuildConfig): cdk.aws_sns.Topic {
+    const organizationCreatedTopic = new sns.Topic(
+      this,
+      "OrganizationCreatedTopic",
+      {
+        displayName: "OrganizationCreatedTopic",
+      }
+    );
+    const importedOrganizationCreatedQueue = sqs.Queue.fromQueueArn(
+      this,
+      "ImportedOrganizationCreatedQueue",
+      buildConfig.SQSOrganizationCreatedQueueArn
+    );
+    if (!importedOrganizationCreatedQueue) {
+      throw new Error("ImportedOrganizationCreatedQueue was not imported");
+    }
+    organizationCreatedTopic.addSubscription(
+      new subs.SqsSubscription(importedOrganizationCreatedQueue)
+    );
+    return organizationCreatedTopic;
   }
 }
