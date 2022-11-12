@@ -55,9 +55,10 @@ const lambdaHandler = async function (
   await orgRepo.saveOrg(organization);
   // Publish Message with SNS
   console.log("Sending OrganizationCreated message");
-  await snsService.sendOrganizationCreatedMessage({
+  await snsService.publishOrganizationCreatedMessage({
     organizationName: organization.Name,
     organizationID: organization.ID,
+    toEmail: email,
   });
   // Send Message to Us
   console.log("Creating Message");
@@ -93,17 +94,18 @@ const handler = middy(lambdaHandler)
   .use(httpJsonBodyParser())
   .use(httpResponseSerializer())
   .use(
-    httpErrorHandler({
-      fallbackMessage: "Bilinmeyen hata",
-    })
-  )
-  .use(schemaValidatorMiddleware(inputSchema))
-  .use(
     cors({
       origin: "*",
       methods: "GET, PUT, PATCH, POST, DELETE, OPTIONS",
       headers:
         "Content-Type, X-Amz-Date, Authorization, X-Api-Key, X-Amz-Security-Token, X-Amz-User-AgentContent-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent",
     })
-  );
+  )
+  .use(
+    httpErrorHandler({
+      fallbackMessage: "Bilinmeyen hata",
+    })
+  )
+  .use(schemaValidatorMiddleware(inputSchema));
+
 export { handler, lambdaHandler };

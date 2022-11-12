@@ -18,15 +18,17 @@ export class SNSService {
     }
     this.topicArn = SNSOrganizationCreatedTopicArn;
   }
-  async sendOrganizationCreatedMessage({
+  async publishOrganizationCreatedMessage({
     organizationName,
     organizationID,
+    toEmail,
   }: {
     organizationName: string;
     organizationID: string;
+    toEmail: string;
   }): Promise<void> {
     const command = new PublishCommand({
-      Message: JSON.stringify({ organizationName, organizationID }),
+      Message: JSON.stringify({ organizationName, organizationID, toEmail }),
       Subject: "OrganizationCreated",
       TopicArn: this.topicArn,
     });
