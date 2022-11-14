@@ -147,7 +147,7 @@ export class HalappAccountStack extends cdk.Stack {
       tableName: "HalAccount",
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       partitionKey: {
-        name: "AccountId",
+        name: "AccountID",
         type: dynamodb.AttributeType.STRING,
       },
       sortKey: {

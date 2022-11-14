@@ -1,7 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import * as ejs from "ejs";
 import { SESStore } from "../repositories/ses-store";
-import { OrganizationEnrollmentDTO } from "../models/dto/organization-enrollment.dto";
 import { SendEmailCommand } from "@aws-sdk/client-ses";
 import { S3Store } from "../repositories/s3-store";
 import { GetObjectCommand } from "@aws-sdk/client-s3";

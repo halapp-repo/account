@@ -4,7 +4,7 @@ import { DynamoStore } from "./dynamo-store";
 import createHttpError = require("http-errors");
 import { OrganizationEvent } from "../models/events";
 import { OrgEventToAcctRepositoryDTOMapper } from "../mappers/org-event-to-org-repository-dto.mapper";
-import { AccountRepositoryDTO } from "../models/dto/account.repository.dto";
+import { OrganizationRepositoryDTO } from "../models/dto/account.repository.dto";
 import { Organization } from "../models/organization";
 import { getComparator } from "../utils/sort";
 
@@ -38,12 +38,12 @@ export default class OrganizationRepository {
   async getOrg(id: string): Promise<Organization | null> {
     const command = new QueryCommand({
       TableName: this.tableName,
-      KeyConditionExpression: "#AccountId = :AccountId",
+      KeyConditionExpression: "#AccountID = :AccountID",
       ExpressionAttributeNames: {
-        "#AccountId": "AccountId",
+        "#AccountID": "AccountID",
       },
       ExpressionAttributeValues: {
-        ":AccountId": `org#${id}`,
+        ":AccountID": `org#${id}`,
       },
     });
     const { Items } = await this.store.dynamoClient.send(command);
@@ -52,11 +52,12 @@ export default class OrganizationRepository {
     }
     const listOfEvents = this.mapper.toListModel(
       Items.map((i) => {
-        return <AccountRepositoryDTO>{
-          AccountId: i["AccountId"],
+        return <OrganizationRepositoryDTO>{
+          AccountID: i["AccountID"],
           TS: i["TS"],
           EventType: i["EventType"],
           Payload: i["Payload"],
+          VKN: i["VKN"],
         };
       })
     );

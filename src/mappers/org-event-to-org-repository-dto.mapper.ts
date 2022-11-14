@@ -1,6 +1,9 @@
 import { trMoment } from "../utils/timezone";
 import { AccountEventType } from "../models/account-event-type.enum";
-import { AccountRepositoryDTO } from "../models/dto/account.repository.dto";
+import {
+  AccountRepositoryDTO,
+  OrganizationRepositoryDTO,
+} from "../models/dto/account.repository.dto";
 import { OrganizationEvent } from "../models/events";
 import { OrganizationCreatedV1Payload } from "../models/events/organization-created-v1.event";
 import { IMapper } from "./base.mapper";
@@ -8,24 +11,30 @@ import createHttpError = require("http-errors");
 
 export class OrgEventToAcctRepositoryDTOMapper extends IMapper<
   OrganizationEvent,
-  AccountRepositoryDTO
+  OrganizationRepositoryDTO
 > {
-  toDTO(arg: OrganizationEvent): AccountRepositoryDTO {
-    return <AccountRepositoryDTO>{
-      AccountId: `org#${arg.OrgID}`,
+  toDTO(arg: OrganizationEvent): OrganizationRepositoryDTO {
+    return <OrganizationRepositoryDTO>{
+      AccountID: `org#${arg.OrgID}`,
       EventType: arg.EventType,
       TS: arg.TS.format(),
       Payload: JSON.stringify(arg.Payload),
+      ...(arg.VKN
+        ? {
+            VKN: arg.VKN,
+          }
+        : null),
     };
   }
-  toModel(arg: AccountRepositoryDTO): OrganizationEvent {
-    const [_, ID] = arg.AccountId.split("#");
+  toModel(arg: OrganizationRepositoryDTO): OrganizationEvent {
+    const [_, ID] = arg.AccountID.split("#");
     const eventType =
       AccountEventType[arg.EventType as keyof typeof AccountEventType];
     const ts = trMoment(arg.TS);
     const payload = JSON.parse(arg.Payload);
     if (eventType === AccountEventType.OrganizationCreatedV1) {
       return {
+        VKN: arg.VKN!,
         EventType: eventType,
         OrgID: ID,
         TS: ts,

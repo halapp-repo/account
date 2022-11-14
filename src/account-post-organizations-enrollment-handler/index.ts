@@ -14,60 +14,57 @@ import {
   APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { SESService } from "../services/ses.service";
-import { OrganizationEnrollmentDTO } from "../models/dto/organization-enrollment.dto";
 import OrganizationRepository from "../repositories/organization.repository";
 import { SNSService } from "../services/sns.service";
+import { OrganizationDTO } from "../models/dto/organization.dto";
 
 interface Event<TBody> extends Omit<APIGatewayProxyEventV2, "body"> {
   body: TBody;
 }
 
 const lambdaHandler = async function (
-  event: Event<OrganizationEnrollmentDTO>,
+  event: Event<OrganizationDTO>,
   context: Context
 ): Promise<APIGatewayProxyResult> {
   const sesService = diContainer.resolve(SESService);
   const orgRepo = diContainer.resolve(OrganizationRepository);
   const snsService = diContainer.resolve(SNSService);
+  // Print event
+  console.log(JSON.stringify(event));
   // Create Organization
-  const {
-    organizationName,
-    formattedAddress,
-    city,
-    county,
-    country,
-    email,
-    phoneNumber,
-    zipCode,
-  } = event.body;
+  const { Name, Email, PhoneNumber, VKN, CompanyAddress, InvoiceAddress } =
+    event.body;
   const organization = new Organization();
   organization.createOrganization({
-    organizationName,
-    formattedAddress,
-    city,
-    county,
-    country,
-    email,
-    phoneNumber,
-    zipCode,
+    organizationName: Name!,
+    email: Email!,
+    vkn: VKN!,
+    phoneNumber: PhoneNumber!,
+    companyAddress: CompanyAddress!,
+    invoiceAddress: InvoiceAddress!,
   });
   console.log("Organization creating");
   await orgRepo.saveOrg(organization);
   // Publish Message with SNS
-  console.log("Sending OrganizationCreated message");
+  console.log("Publish OrganizationCreated message");
   await snsService.publishOrganizationCreatedMessage({
     organizationName: organization.Name,
     organizationID: organization.ID,
-    toEmail: email,
+    toEmail: organization.Email,
   });
-  // Send Message to Us
+  // Send Message to Us!!!
   console.log("Creating Message");
   await sesService.sendNewOrganizationCreatedEmail({
-    email,
-    formattedAddress,
+    email: organization.Email,
     organizationID: organization.ID,
-    organizationName,
-    phoneNumber,
+    organizationName: organization.Name,
+    phoneNumber: organization.PhoneNumber,
+    formattedAddress: `
+    ${organization.CompanyAddress.AddressLine}
+    ${organization.CompanyAddress.City}
+    ${organization.CompanyAddress.County}
+    ${organization.CompanyAddress.ZipCode}
+    ${organization.CompanyAddress.Country}`,
   });
   return {
     statusCode: 200,
@@ -80,13 +77,24 @@ const lambdaHandler = async function (
 
 const inputSchema = {
   body: yup.object({
-    organizationName: yup.string().required(),
-    formattedAddress: yup.string().required(),
-    email: yup.string().email().required(),
-    phoneNumber: yup.string().required(),
-    county: yup.string().required(),
-    city: yup.string().required(),
-    country: yup.string().required(),
+    VKN: yup.string().required(),
+    Name: yup.string().required(),
+    Email: yup.string().email().required(),
+    PhoneNumber: yup.string().required(),
+    CompanyAddress: yup.object({
+      AddressLine: yup.string().required(),
+      County: yup.string().required(),
+      City: yup.string().required(),
+      ZipCode: yup.string().required(),
+      Country: yup.string().required(),
+    }),
+    InvoiceAddress: yup.object({
+      AddressLine: yup.string().required(),
+      County: yup.string().required(),
+      City: yup.string().required(),
+      ZipCode: yup.string().required(),
+      Country: yup.string().required(),
+    }),
   }),
 };
 

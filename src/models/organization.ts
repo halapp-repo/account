@@ -4,9 +4,10 @@ import { OrganizationEvent } from "./events";
 import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
 import { v4 as uuidv4 } from "uuid";
 import { trMoment } from "../utils/timezone";
+import { Type } from "class-transformer";
 
 class Address {
-  FormattedAddress: string;
+  AddressLine: string;
   County: string;
   City: string;
   ZipCode: string;
@@ -14,9 +15,16 @@ class Address {
 }
 
 class Organization extends EventSourceAggregate {
+  VKN: string;
   ID: string = uuidv4();
   Name: string;
-  Address: Address = new Address();
+
+  @Type(() => Address)
+  CompanyAddress: Address = new Address();
+
+  @Type(() => Address)
+  InvoiceAddress: Address = new Address();
+
   PhoneNumber: string;
   Email: string;
   Active: boolean;
@@ -32,66 +40,67 @@ class Organization extends EventSourceAggregate {
   }
   whenOrganizationCreatedV1(event: OrganizationCreatedV1Event) {
     const {
+      VKN,
       OrgID,
       OrganizationName,
       Active,
-      Address,
-      City,
-      Country,
-      County,
+      CompanyAddress,
+      InvoiceAddress,
       Email,
       PhoneNumber,
-      ZipCode,
     } = event.Payload;
+    this.VKN = VKN;
     this.ID = OrgID;
     this.Name = OrganizationName;
     this.Active = Active;
-    this.Address.FormattedAddress = Address;
-    this.Address.City = City;
-    this.Address.Country = Country;
-    this.Address.County = County;
     this.Email = Email;
     this.PhoneNumber = PhoneNumber;
-    this.Address.ZipCode = ZipCode;
+
+    this.CompanyAddress.AddressLine = CompanyAddress.AddressLine;
+    this.CompanyAddress.City = CompanyAddress.City;
+    this.CompanyAddress.Country = CompanyAddress.Country;
+    this.CompanyAddress.County = CompanyAddress.County;
+    this.CompanyAddress.ZipCode = CompanyAddress.ZipCode;
+
+    this.InvoiceAddress.AddressLine = InvoiceAddress.AddressLine;
+    this.InvoiceAddress.City = InvoiceAddress.City;
+    this.InvoiceAddress.Country = InvoiceAddress.Country;
+    this.InvoiceAddress.County = InvoiceAddress.County;
+    this.InvoiceAddress.ZipCode = InvoiceAddress.ZipCode;
   }
   createOrganization({
+    vkn,
     organizationName,
     email,
     phoneNumber,
-    formattedAddress,
-    city,
-    county,
-    country,
-    zipCode,
+    companyAddress,
+    invoiceAddress,
   }: {
+    vkn: string;
     organizationName: string;
     email: string;
     phoneNumber: string;
-    formattedAddress: string;
-    city: string;
-    county: string;
-    country: string;
-    zipCode: string;
+    companyAddress: Address;
+    invoiceAddress: Address;
   }) {
     const event = <OrganizationCreatedV1Event>{
       OrgID: this.ID,
+      VKN: vkn,
       EventType: AccountEventType.OrganizationCreatedV1,
       TS: trMoment(),
       Payload: {
-        Active: false,
+        VKN: vkn,
+        OrgID: this.ID,
         OrganizationName: organizationName,
+        Active: false,
         Email: email,
         PhoneNumber: phoneNumber,
-        Address: formattedAddress,
-        City: city,
-        Country: country,
-        County: county,
-        ZipCode: zipCode,
-        OrgID: this.ID,
+        CompanyAddress: companyAddress,
+        InvoiceAddress: invoiceAddress,
       },
     };
     this.causes(event);
   }
 }
 
-export { Organization };
+export { Organization, Address };
