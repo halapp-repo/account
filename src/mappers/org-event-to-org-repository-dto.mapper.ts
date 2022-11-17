@@ -9,7 +9,7 @@ import { OrganizationCreatedV1Payload } from "../models/events/organization-crea
 import { IMapper } from "./base.mapper";
 import createHttpError = require("http-errors");
 
-export class OrgEventToAcctRepositoryDTOMapper extends IMapper<
+export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
   OrganizationEvent,
   OrganizationRepositoryDTO
 > {

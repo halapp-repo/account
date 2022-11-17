@@ -4,19 +4,21 @@ import cors from "@middy/http-cors";
 import httpErrorHandler from "@middy/http-error-handler";
 import httpResponseSerializer from "@middy/http-response-serializer";
 import httpJsonBodyParser from "@middy/http-json-body-parser";
-import { diContainer } from "../core/di-registry";
+import { diContainer } from "../../core/di-registry";
 import * as yup from "yup";
-import schemaValidatorMiddleware from "../middlewares/schema-validator.middleware";
-import { Organization } from "../models/organization";
+import schemaValidatorMiddleware from "../../middlewares/schema-validator.middleware";
+import { Organization } from "../../models/organization";
 import {
   Context,
   APIGatewayProxyResult,
   APIGatewayProxyEventV2,
 } from "aws-lambda";
-import { SESService } from "../services/ses.service";
-import OrganizationRepository from "../repositories/organization.repository";
-import { SNSService } from "../services/sns.service";
-import { OrganizationDTO } from "../models/dto/organization.dto";
+import { SESService } from "../../services/ses.service";
+import OrganizationRepository from "../../repositories/organization.repository";
+import { SNSService } from "../../services/sns.service";
+import { OrganizationDTO } from "../../models/dto/organization.dto";
+import { AccountEventType } from "../../models/account-event-type.enum";
+import createHttpError = require("http-errors");
 
 interface Event<TBody> extends Omit<APIGatewayProxyEventV2, "body"> {
   body: TBody;
@@ -34,8 +36,18 @@ const lambdaHandler = async function (
   // Create Organization
   const { Name, Email, PhoneNumber, VKN, CompanyAddress, InvoiceAddress } =
     event.body;
-  const organization = new Organization();
-  organization.createOrganization({
+
+  const existingOrganization = await orgRepo.getOrgBy(VKN!);
+  if (existingOrganization) {
+    throw createHttpError.BadRequest(
+      JSON.stringify({
+        message: `vkn: ${VKN} kullanimda`,
+      })
+    );
+  }
+
+  const creatingOrganization = new Organization();
+  creatingOrganization.createOrganization({
     organizationName: Name!,
     email: Email!,
     vkn: VKN!,
@@ -44,27 +56,29 @@ const lambdaHandler = async function (
     invoiceAddress: InvoiceAddress!,
   });
   console.log("Organization creating");
-  await orgRepo.saveOrg(organization);
+  await orgRepo.saveOrg(creatingOrganization);
   // Publish Message with SNS
   console.log("Publish OrganizationCreated message");
   await snsService.publishOrganizationCreatedMessage({
-    organizationName: organization.Name,
-    organizationID: organization.ID,
-    toEmail: organization.Email,
+    organizationName: creatingOrganization.Name,
+    organizationID: creatingOrganization.ID,
+    toEmail: creatingOrganization.Email,
+    eventType: AccountEventType.OrganizationCreatedV1,
   });
+
   // Send Message to Us!!!
   console.log("Creating Message");
   await sesService.sendNewOrganizationCreatedEmail({
-    email: organization.Email,
-    organizationID: organization.ID,
-    organizationName: organization.Name,
-    phoneNumber: organization.PhoneNumber,
+    email: creatingOrganization.Email,
+    organizationID: creatingOrganization.ID,
+    organizationName: creatingOrganization.Name,
+    phoneNumber: creatingOrganization.PhoneNumber,
     formattedAddress: `
-    ${organization.CompanyAddress.AddressLine}
-    ${organization.CompanyAddress.City}
-    ${organization.CompanyAddress.County}
-    ${organization.CompanyAddress.ZipCode}
-    ${organization.CompanyAddress.Country}`,
+    ${creatingOrganization.CompanyAddress.AddressLine}
+    ${creatingOrganization.CompanyAddress.City}
+    ${creatingOrganization.CompanyAddress.County}
+    ${creatingOrganization.CompanyAddress.ZipCode}
+    ${creatingOrganization.CompanyAddress.Country}`,
   });
   return {
     statusCode: 200,
@@ -111,7 +125,9 @@ const handler = middy(lambdaHandler)
   )
   .use(
     httpErrorHandler({
-      fallbackMessage: "Bilinmeyen hata",
+      fallbackMessage: JSON.stringify({
+        message: "Bilinmeyen hata olustu",
+      }),
     })
   )
   .use(schemaValidatorMiddleware(inputSchema));

@@ -2,21 +2,21 @@ import { inject, injectable } from "tsyringe";
 import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoStore } from "./dynamo-store";
 import createHttpError = require("http-errors");
-import { OrganizationEvent } from "../models/events";
-import { OrgEventToOrgRepositoryDTOMapper } from "../mappers/org-event-to-org-repository-dto.mapper";
-import { OrganizationRepositoryDTO } from "../models/dto/account.repository.dto";
-import { Organization } from "../models/organization";
+import { UserEvent } from "../models/events";
+import { UserRepositoryDTO } from "../models/dto/account.repository.dto";
 import { getComparator } from "../utils/sort";
+import { User } from "../models/user";
+import { UserEventToUserRepositoryDTOMapper } from "../mappers/user-event-to-user-respository-dto.mapper";
 
 @injectable()
-export default class OrganizationRepository {
+export default class UserRepository {
   private tableName: string;
 
   constructor(
     @inject("DBStore")
     private store: DynamoStore,
-    @inject("OrgEventToOrgRepoMapper")
-    private mapper: OrgEventToOrgRepositoryDTOMapper
+    @inject("UserEventToUserRepoMapper")
+    private mapper: UserEventToUserRepositoryDTOMapper
   ) {
     const { AccountDB } = process.env;
     if (!AccountDB) {
@@ -26,16 +26,16 @@ export default class OrganizationRepository {
     }
     this.tableName = AccountDB;
   }
-  async saveOrg(org: Organization) {
+  async saveUser(org: User) {
     for (const event of org.Changes) {
       const command = new PutCommand({
         TableName: this.tableName,
-        Item: this.mapper.toDTO(event as OrganizationEvent),
+        Item: this.mapper.toDTO(event as UserEvent),
       });
       await this.store.dynamoClient.send(command);
     }
   }
-  async getOrg(id: string): Promise<Organization | null> {
+  async getUser(id: string): Promise<User | null> {
     const command = new QueryCommand({
       TableName: this.tableName,
       KeyConditionExpression: "#AccountID = :AccountID",
@@ -43,7 +43,7 @@ export default class OrganizationRepository {
         "#AccountID": "AccountID",
       },
       ExpressionAttributeValues: {
-        ":AccountID": `org#${id}`,
+        ":AccountID": `user#${id}`,
       },
     });
     const { Items } = await this.store.dynamoClient.send(command);
@@ -52,32 +52,32 @@ export default class OrganizationRepository {
     }
     const listOfEvents = this.mapper.toListModel(
       Items.map((i) => {
-        return <OrganizationRepositoryDTO>{
+        return <UserRepositoryDTO>{
           AccountID: i["AccountID"],
           TS: i["TS"],
           EventType: i["EventType"],
           Payload: i["Payload"],
-          VKN: i["VKN"],
+          Email: i["Email"],
         };
       })
     );
     const sortedEvents = listOfEvents.sort(getComparator("asc", "TS"));
-    const org = new Organization();
+    const user = new User();
     for (const event of sortedEvents) {
-      org.apply(event);
+      user.apply(event);
     }
-    return org;
+    return user;
   }
-  async getOrgBy(vkn: string): Promise<Organization | null> {
+  async getUserBy(email: string): Promise<User | null> {
     const command = new QueryCommand({
       TableName: this.tableName,
-      IndexName: "VKNIndex",
-      KeyConditionExpression: "#VKN = :VKN",
+      IndexName: "EmailIndex",
+      KeyConditionExpression: "#Email = :Email",
       ExpressionAttributeNames: {
-        "#VKN": "VKN",
+        "#Email": "Email",
       },
       ExpressionAttributeValues: {
-        ":VKN": `${vkn}`,
+        ":Email": `${email}`,
       },
     });
     const { Items } = await this.store.dynamoClient.send(command);
@@ -86,20 +86,20 @@ export default class OrganizationRepository {
     }
     const listOfEvents = this.mapper.toListModel(
       Items.map((i) => {
-        return <OrganizationRepositoryDTO>{
+        return <UserRepositoryDTO>{
           AccountID: i["AccountID"],
           TS: i["TS"],
           EventType: i["EventType"],
           Payload: i["Payload"],
-          VKN: i["VKN"],
+          Email: i["Email"],
         };
       })
     );
     const sortedEvents = listOfEvents.sort(getComparator("asc", "TS"));
-    const org = new Organization();
+    const user = new User();
     for (const event of sortedEvents) {
-      org.apply(event);
+      user.apply(event);
     }
-    return org;
+    return user;
   }
 }

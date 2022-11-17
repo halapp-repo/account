@@ -39,6 +39,7 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "SQSOrganizationCreatedQueueArn"
     ),
+    SNSUserCreatedTopicArn: ensureString(unparsedEnv, "SNSUserCreatedTopicArn"),
   };
   return buildConfig;
 }

@@ -1,7 +1,7 @@
 import { OrganizationEvent, UserEvent } from "./events";
 
 abstract class EventSourceAggregate {
-  Changes: OrganizationEvent[] = [];
+  Changes: (OrganizationEvent | UserEvent)[] = [];
   abstract apply(event: OrganizationEvent | UserEvent): void;
 }
 

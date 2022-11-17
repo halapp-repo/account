@@ -8,17 +8,12 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
-
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import getConfig from "../config";
 import { BuildConfig } from "./build-config";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import {
-  ArnPrincipal,
-  Effect,
-  PolicyStatement,
-  ServicePrincipal,
-} from "aws-cdk-lib/aws-iam";
+import { Effect, PolicyStatement, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 
 export class HalappAccountStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -36,7 +31,6 @@ export class HalappAccountStack extends cdk.Stack {
       `imported-hal-email-template-${this.account}`,
       `hal-email-template-${this.account}`
     );
-
     // *************
     // Create SNS (Organization Created)
     // *************
@@ -45,6 +39,11 @@ export class HalappAccountStack extends cdk.Stack {
     // Create AccountDB
     // **************
     const accountDB = this.createAccountTable();
+    // **************
+    // Create SQS (User Created)
+    // ****************
+    const userCreatedSQS = this.createUserCreatedQueue(buildConfig);
+
     // ********************
     // Create API Gateway
     // ********************
@@ -60,6 +59,7 @@ export class HalappAccountStack extends cdk.Stack {
       importedEmailTemplateBucket,
       buildConfig
     );
+    this.userCreatedHandler(userCreatedSQS, accountDB, buildConfig);
   }
   createAccountApiGateway(): cdk.aws_apigateway.RestApi {
     const accountApi = new apigateway.RestApi(this, "HalAppAccountApi", {
@@ -99,7 +99,7 @@ export class HalappAccountStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(15),
         entry: path.join(
           __dirname,
-          `/../src/account-post-organizations-enrollment-handler/index.ts`
+          `/../src/handlers/account-post-organizations-enrollment-handler/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -157,13 +157,17 @@ export class HalappAccountStack extends cdk.Stack {
       pointInTimeRecovery: true,
     });
     accountTable.addGlobalSecondaryIndex({
-      indexName: "EventTypeIndex",
+      indexName: "VKNIndex",
       partitionKey: {
-        name: "EventType",
+        name: "VKN",
         type: dynamodb.AttributeType.STRING,
       },
-      sortKey: {
-        name: "TS",
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    accountTable.addGlobalSecondaryIndex({
+      indexName: "EmailIndex",
+      partitionKey: {
+        name: "Email",
         type: dynamodb.AttributeType.STRING,
       },
       projectionType: dynamodb.ProjectionType.ALL,
@@ -190,5 +194,84 @@ export class HalappAccountStack extends cdk.Stack {
       new subs.SqsSubscription(importedOrganizationCreatedQueue)
     );
     return organizationCreatedTopic;
+  }
+  createUserCreatedQueue(buildConfig: BuildConfig): cdk.aws_sqs.Queue {
+    const userCreatedDLQ = new sqs.Queue(this, "Auth-UserCreatedDLQ", {
+      queueName: "Auth-UserCreatedDLQ",
+      retentionPeriod: cdk.Duration.hours(10),
+    });
+    const userCreatedQueue = new sqs.Queue(this, "Auth-UserCreatedQueue", {
+      queueName: "Auth-UserCreatedQueue",
+      visibilityTimeout: cdk.Duration.minutes(2),
+      retentionPeriod: cdk.Duration.days(1),
+      deadLetterQueue: {
+        queue: userCreatedDLQ,
+        maxReceiveCount: 4,
+      },
+    });
+    userCreatedQueue.addToResourcePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        principals: [new ServicePrincipal("sns.amazonaws.com")],
+        actions: ["sqs:SendMessage"],
+        resources: [userCreatedQueue.queueArn],
+        conditions: {
+          StringEquals: {
+            "aws:SourceAccount": this.account,
+          },
+          ArnLike: {
+            // Allows all buckets to send notifications since we haven't created the bucket yet.
+            "aws:SourceArn": "arn:aws:sns:*:*:*",
+          },
+        },
+      })
+    );
+    const importedUserCreatedTopic = sns.Topic.fromTopicArn(
+      this,
+      "ImportedUserCreatedTopic",
+      buildConfig.SNSUserCreatedTopicArn
+    );
+    if (!importedUserCreatedTopic) {
+      throw new Error("ImportedUserCreatedTopic needs to come from auth");
+    }
+    importedUserCreatedTopic.addSubscription(
+      new subs.SqsSubscription(userCreatedQueue)
+    );
+    return userCreatedQueue;
+  }
+  userCreatedHandler(
+    userCreatedSQS: cdk.aws_sqs.Queue,
+    accountDB: cdk.aws_dynamodb.Table,
+    buildConfig: BuildConfig
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const userCreatedHandler = new NodejsFunction(
+      this,
+      "Account-SqsUserCreatedHandler",
+      {
+        memorySize: 1024,
+        timeout: cdk.Duration.minutes(1),
+        functionName: "Account-SqsUserCreatedHandler",
+        runtime: lambda.Runtime.NODEJS_16_X,
+        handler: "handler",
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/user-created-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+      }
+    );
+    userCreatedHandler.addEventSource(
+      new SqsEventSource(userCreatedSQS, {
+        batchSize: 1,
+      })
+    );
+    accountDB.grantWriteData(userCreatedHandler);
+    return userCreatedHandler;
   }
 }

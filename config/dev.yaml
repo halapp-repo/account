@@ -6,3 +6,4 @@ SESFromEmail: no-reply@halapp.io
 SESCCEmail: furkan.ozdeslik@gmail.com
 S3OrganizationEnrollmentEmailTemplate: organization-enrollment.ejs
 SQSOrganizationCreatedQueueArn: arn:aws:sqs:eu-central-1:963662274920:Auth-OrganizationCreatedQueue
+SNSUserCreatedTopicArn: arn:aws:sns:eu-central-1:963662274920:HalappAuth-DEVELOPMENT-UserCreatedTopic40AC1E1A-q5XnAJddSDAB

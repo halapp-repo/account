@@ -7,4 +7,5 @@ export interface BuildConfig {
   readonly SESCCEmail: string;
   readonly S3OrganizationEnrollmentEmailTemplate: string;
   readonly SQSOrganizationCreatedQueueArn: string;
+  readonly SNSUserCreatedTopicArn: string;
 }

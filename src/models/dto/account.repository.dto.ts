@@ -8,3 +8,6 @@ export interface AccountRepositoryDTO {
 export interface OrganizationRepositoryDTO extends AccountRepositoryDTO {
   VKN?: string;
 }
+export interface UserRepositoryDTO extends AccountRepositoryDTO {
+  Email?: string;
+}
