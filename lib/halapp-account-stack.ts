@@ -264,6 +264,9 @@ export class HalappAccountStack extends cdk.Stack {
           sourceMap: true,
           minify: true,
         },
+        environment: {
+          AccountDB: accountDB.tableName,
+        },
       }
     );
     userCreatedHandler.addEventSource(
@@ -271,7 +274,7 @@ export class HalappAccountStack extends cdk.Stack {
         batchSize: 1,
       })
     );
-    accountDB.grantWriteData(userCreatedHandler);
+    accountDB.grantReadWriteData(userCreatedHandler);
     return userCreatedHandler;
   }
 }

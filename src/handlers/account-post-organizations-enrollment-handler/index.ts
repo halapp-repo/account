@@ -38,6 +38,7 @@ const lambdaHandler = async function (
     event.body;
 
   const existingOrganization = await orgRepo.getOrgBy(VKN!);
+  console.log(existingOrganization);
   if (existingOrganization) {
     throw createHttpError.BadRequest(
       JSON.stringify({

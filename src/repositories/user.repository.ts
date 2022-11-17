@@ -81,7 +81,7 @@ export default class UserRepository {
       },
     });
     const { Items } = await this.store.dynamoClient.send(command);
-    if (!Items) {
+    if (!Items || Items.length === 0) {
       return null;
     }
     const listOfEvents = this.mapper.toListModel(
