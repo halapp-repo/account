@@ -1,7 +1,7 @@
 {
     "resource": "/",
     "path": "/",
-    "httpMethod": "GET",
+    "httpMethod": "POST",
     "headers": {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
         "accept-encoding": "gzip, deflate, br",
@@ -16,7 +16,8 @@
         "X-Amzn-Trace-Id": "Root=1-5e66d96f-7491f09xmpl79d18acf3d050",
         "X-Forwarded-For": "52.255.255.12",
         "X-Forwarded-Port": "443",
-        "X-Forwarded-Proto": "https"
+        "X-Forwarded-Proto": "https",
+        "Content-Type": "application/json"
     },
     "multiValueHeaders": {
         "accept": [
@@ -96,8 +97,6 @@
         "domainName": "70ixmpl4fl.execute-api.us-east-2.amazonaws.com",
         "apiId": "70ixmpl4fl"
     },
-    "body": {
-        "VKN":"12345"
-    },
+    "body": "{\"VKN\":\"2037637860\",\"Name\":\"Test Me\",\"Email\":\"furkan.ozdeslik@gmail.com\",\"PhoneNumber\":\"+1 510 495 9942\",\"CompanyAddress\":{\"AddressLine\":\"19 mayis caddesi ayhan isik\",\"County\":\"Şişli\",\"City\":\"İstanbul\",\"ZipCode\":\"34363\",\"Country\":\"Türkiye\"},\"InvoiceAddress\":{\"AddressLine\":\"19 mayis caddesi ayhan isik\",\"County\":\"Şişli\",\"City\":\"İstanbul\",\"ZipCode\":\"34363\",\"Country\":\"Türkiye\"}}",
     "isBase64Encoded": false
 }

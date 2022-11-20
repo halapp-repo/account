@@ -38,7 +38,7 @@ export class HalappAccountStack extends cdk.Stack {
     // **************
     // Create AccountDB
     // **************
-    const accountDB = this.createAccountTable();
+    const accountDB = this.createAccountTable(buildConfig);
     // **************
     // Create SQS (User Created)
     // ****************
@@ -109,8 +109,9 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
+          NODE_OPTIONS: "--enable-source-maps",
           Region: buildConfig.Region,
-          AccountDB: accountDB.tableName,
+          AccountDB: buildConfig.AccountDBName,
           S3BucketName: importedEmailTemplateBucket.bucketName,
           SESFromEmail: buildConfig.SESFromEmail,
           SESCCEmail: buildConfig.SESCCEmail,
@@ -141,10 +142,10 @@ export class HalappAccountStack extends cdk.Stack {
     organizationCreatedTopic.grantPublish(organizationsEnrollmentHandler);
     return organizationsEnrollmentHandler;
   }
-  createAccountTable(): cdk.aws_dynamodb.Table {
+  createAccountTable(buildConfig: BuildConfig): cdk.aws_dynamodb.Table {
     const accountTable = new dynamodb.Table(this, "HalAccountDB", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      tableName: "HalAccount",
+      tableName: buildConfig.AccountDBName,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       partitionKey: {
         name: "AccountID",
@@ -185,7 +186,7 @@ export class HalappAccountStack extends cdk.Stack {
     const importedOrganizationCreatedQueue = sqs.Queue.fromQueueArn(
       this,
       "ImportedOrganizationCreatedQueue",
-      buildConfig.SQSOrganizationCreatedQueueArn
+      buildConfig.AUTHSQSOrganizationCreatedQueueArn
     );
     if (!importedOrganizationCreatedQueue) {
       throw new Error("ImportedOrganizationCreatedQueue was not imported");
@@ -229,7 +230,7 @@ export class HalappAccountStack extends cdk.Stack {
     const importedUserCreatedTopic = sns.Topic.fromTopicArn(
       this,
       "ImportedUserCreatedTopic",
-      buildConfig.SNSUserCreatedTopicArn
+      buildConfig.AUTHSNSUserCreatedTopicArn
     );
     if (!importedUserCreatedTopic) {
       throw new Error("ImportedUserCreatedTopic needs to come from auth");
@@ -265,7 +266,8 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
-          AccountDB: accountDB.tableName,
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
         },
       }
     );

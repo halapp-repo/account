@@ -6,7 +6,10 @@ export class DynamoStore implements Store {
   readonly dynamoClient: DynamoDBDocumentClient;
 
   constructor() {
-    const docClient = new DynamoDBClient({});
+    const { Region } = process.env;
+    const docClient = new DynamoDBClient({
+      region: Region,
+    });
     this.dynamoClient = DynamoDBDocumentClient.from(docClient);
   }
 }

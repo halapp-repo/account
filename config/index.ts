@@ -35,11 +35,15 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "S3OrganizationEnrollmentEmailTemplate"
     ),
-    SQSOrganizationCreatedQueueArn: ensureString(
+    AUTHSQSOrganizationCreatedQueueArn: ensureString(
       unparsedEnv,
-      "SQSOrganizationCreatedQueueArn"
+      "AUTH-SQSOrganizationCreatedQueueArn"
     ),
-    SNSUserCreatedTopicArn: ensureString(unparsedEnv, "SNSUserCreatedTopicArn"),
+    AUTHSNSUserCreatedTopicArn: ensureString(
+      unparsedEnv,
+      "AUTH-SNSUserCreatedTopicArn"
+    ),
+    AccountDBName: ensureString(unparsedEnv, "AccountDBName"),
   };
   return buildConfig;
 }

@@ -8,7 +8,9 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "esbuild":"node build.js",
+    "debug:org-enroll": "sam  local invoke -d 9995  -t ./cdk.out/HalappAccountStack.template.json AccountOrganizationEnrollmentHandler -e events/organization-enrollment.event.json --profile default --region eu-central-1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.108",

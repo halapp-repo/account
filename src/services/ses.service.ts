@@ -65,7 +65,10 @@ export class SESService {
       })
     );
     // Convert the ReadableStream to a string.
-    const fileStr: string = await Body.transformToString();
+    const fileStr: string | undefined = await Body?.transformToString();
+    if (!fileStr) {
+      throw new Error("fileStr is undefined");
+    }
 
     const body = await ejs.render(fileStr, {
       organizationName,
