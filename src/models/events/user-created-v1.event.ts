@@ -2,6 +2,7 @@ import { AccountEventType } from "../account-event-type.enum";
 
 interface UserCreatedV1Payload {
   UserID: string;
+  OrganizationID: string;
   Email: string;
   Active: boolean;
 }

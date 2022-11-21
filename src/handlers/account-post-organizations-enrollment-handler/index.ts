@@ -48,8 +48,7 @@ const lambdaHandler = async function (
     );
   }
 
-  const creatingOrganization = new Organization();
-  creatingOrganization.createOrganization({
+  const creatingOrganization = Organization.create({
     organizationName: Name!,
     email: Email!,
     vkn: VKN!,
