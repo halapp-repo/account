@@ -4,8 +4,9 @@ import { OrganizationEvent } from "./events";
 import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
 import { v4 as uuidv4 } from "uuid";
 import { trMoment } from "../utils/timezone";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
+import moment = require("moment");
 
 class Address {
   AddressLine: string;
@@ -31,6 +32,12 @@ class Organization extends EventSourceAggregate {
   Active: boolean;
 
   JoinedUsers: string[];
+
+  @Type(() => String)
+  @Transform(({ value }: { value: string }) => trMoment(value), {
+    toClassOnly: true,
+  })
+  CreatedDate: moment.Moment;
 
   apply(event: OrganizationEvent): void {
     if (event.EventType == AccountEventType.OrganizationCreatedV1) {
@@ -74,6 +81,8 @@ class Organization extends EventSourceAggregate {
     this.InvoiceAddress.Country = InvoiceAddress.Country;
     this.InvoiceAddress.County = InvoiceAddress.County;
     this.InvoiceAddress.ZipCode = InvoiceAddress.ZipCode;
+
+    this.CreatedDate = event.TS;
   }
   whenUserJoinedV1(event: UserJoinedV1Event) {
     const { UserID } = event.Payload;

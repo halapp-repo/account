@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as apiGateway from "@aws-cdk/aws-apigatewayv2-alpha";
+import * as apiGatewayIntegrations from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, LogLevel } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as path from "path";
@@ -9,11 +10,14 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import getConfig from "../config";
 import { BuildConfig } from "./build-config";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as apiGatewayAuthorizers from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import { Effect, PolicyStatement, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
+import { HttpMethod } from "@aws-cdk/aws-apigatewayv2-alpha";
 
 export class HalappAccountStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -31,6 +35,10 @@ export class HalappAccountStack extends cdk.Stack {
       `imported-hal-email-template-${this.account}`,
       `hal-email-template-${this.account}`
     );
+    ///*************
+    // Import Authorizer
+    ///***************
+    const authorizer = this.importAuthorizer(buildConfig);
     // *************
     // Create SNS (Organization Created)
     // *************
@@ -48,46 +56,56 @@ export class HalappAccountStack extends cdk.Stack {
     // Create API Gateway
     // ********************
     const accountApi = this.createAccountApiGateway();
-    const organizationsResource = accountApi.root.addResource("organizations");
-    const organizationsEnrollmentResource =
-      organizationsResource.addResource("enrollment");
 
     this.createOrganizationEnrollmentHandler(
-      organizationsEnrollmentResource,
+      buildConfig,
+      accountApi,
       organizationCreatedTopic,
       accountDB,
-      importedEmailTemplateBucket,
-      buildConfig
+      importedEmailTemplateBucket
     );
-    this.userCreatedHandler(userCreatedSQS, accountDB, buildConfig);
+    this.userCreatedHandler(buildConfig, userCreatedSQS, accountDB);
+    this.createGetOrganizationsHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
   }
-  createAccountApiGateway(): cdk.aws_apigateway.RestApi {
-    const accountApi = new apigateway.RestApi(this, "HalAppAccountApi", {
+  createAccountApiGateway(): apiGateway.HttpApi {
+    const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
       description: "HalApp Account Api Gateway",
+      corsPreflight: {
+        allowHeaders: [
+          "Content-Type",
+          "X-Amz-Date",
+          "Authorization",
+          "X-Api-Key",
+        ],
+        allowMethods: [
+          apiGateway.CorsHttpMethod.GET,
+          apiGateway.CorsHttpMethod.HEAD,
+          apiGateway.CorsHttpMethod.OPTIONS,
+          apiGateway.CorsHttpMethod.POST,
+          apiGateway.CorsHttpMethod.PUT,
+          apiGateway.CorsHttpMethod.DELETE,
+          apiGateway.CorsHttpMethod.PATCH,
+        ],
+        allowOrigins: ["*"],
+      },
     });
     return accountApi;
   }
   createOrganizationEnrollmentHandler(
-    organizationsEnrollmentResource: cdk.aws_apigateway.Resource,
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
     organizationCreatedTopic: cdk.aws_sns.Topic,
-    accountDB: cdk.aws_dynamodb.Table,
-    importedEmailTemplateBucket: cdk.aws_s3.IBucket,
-    buildConfig: BuildConfig
+    accountDB: cdk.aws_dynamodb.ITable,
+    importedEmailTemplateBucket: cdk.aws_s3.IBucket
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     // ***************************
     // Create Lambda Handler
     // ***************************
-    organizationsEnrollmentResource.addCorsPreflight({
-      allowHeaders: [
-        "Content-Type",
-        "X-Amz-Date",
-        "Authorization",
-        "X-Api-Key",
-      ],
-      allowMethods: ["OPTIONS", "GET", "POST", "PUT", "PATCH", "DELETE"],
-      allowCredentials: true,
-      allowOrigins: ["*"],
-    });
     const organizationsEnrollmentHandler = new NodejsFunction(
       this,
       "AccountOrganizationEnrollmentHandler",
@@ -120,12 +138,14 @@ export class HalappAccountStack extends cdk.Stack {
         },
       }
     );
-    organizationsEnrollmentResource.addMethod(
-      "POST",
-      new apigateway.LambdaIntegration(organizationsEnrollmentHandler, {
-        proxy: true,
-      })
-    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.POST],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "postOrganizationsEnrollmentIntegration",
+        organizationsEnrollmentHandler
+      ),
+      path: "/organizations/enrollment",
+    });
     organizationsEnrollmentHandler.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -142,37 +162,45 @@ export class HalappAccountStack extends cdk.Stack {
     organizationCreatedTopic.grantPublish(organizationsEnrollmentHandler);
     return organizationsEnrollmentHandler;
   }
-  createAccountTable(buildConfig: BuildConfig): cdk.aws_dynamodb.Table {
-    const accountTable = new dynamodb.Table(this, "HalAccountDB", {
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      tableName: buildConfig.AccountDBName,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      partitionKey: {
-        name: "AccountID",
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: "TS",
-        type: dynamodb.AttributeType.STRING,
-      },
-      pointInTimeRecovery: true,
-    });
-    accountTable.addGlobalSecondaryIndex({
-      indexName: "VKNIndex",
-      partitionKey: {
-        name: "VKN",
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-    accountTable.addGlobalSecondaryIndex({
-      indexName: "EmailIndex",
-      partitionKey: {
-        name: "Email",
-        type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
+  createAccountTable(buildConfig: BuildConfig): cdk.aws_dynamodb.ITable {
+    let accountTable;
+    if (buildConfig.ShouldCreateDynamoAccountDB === false) {
+      accountTable = dynamodb.Table.fromTableAttributes(this, "HalAccountDB", {
+        tableName: buildConfig.AccountDBName,
+        globalIndexes: ["VKNIndex", "EmailIndex"],
+      });
+    } else {
+      accountTable = new dynamodb.Table(this, "HalAccountDB", {
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        tableName: buildConfig.AccountDBName,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        partitionKey: {
+          name: "AccountID",
+          type: dynamodb.AttributeType.STRING,
+        },
+        sortKey: {
+          name: "TS",
+          type: dynamodb.AttributeType.STRING,
+        },
+        pointInTimeRecovery: true,
+      });
+      accountTable.addGlobalSecondaryIndex({
+        indexName: "VKNIndex",
+        partitionKey: {
+          name: "VKN",
+          type: dynamodb.AttributeType.STRING,
+        },
+        projectionType: dynamodb.ProjectionType.ALL,
+      });
+      accountTable.addGlobalSecondaryIndex({
+        indexName: "EmailIndex",
+        partitionKey: {
+          name: "Email",
+          type: dynamodb.AttributeType.STRING,
+        },
+        projectionType: dynamodb.ProjectionType.ALL,
+      });
+    }
     return accountTable;
   }
   createSNSTopic(buildConfig: BuildConfig): cdk.aws_sns.Topic {
@@ -241,9 +269,9 @@ export class HalappAccountStack extends cdk.Stack {
     return userCreatedQueue;
   }
   userCreatedHandler(
+    buildConfig: BuildConfig,
     userCreatedSQS: cdk.aws_sqs.Queue,
-    accountDB: cdk.aws_dynamodb.Table,
-    buildConfig: BuildConfig
+    accountDB: cdk.aws_dynamodb.ITable
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     const userCreatedHandler = new NodejsFunction(
       this,
@@ -278,5 +306,75 @@ export class HalappAccountStack extends cdk.Stack {
     );
     accountDB.grantReadWriteData(userCreatedHandler);
     return userCreatedHandler;
+  }
+  importAuthorizer(
+    buildConfig: BuildConfig
+  ): apiGatewayAuthorizers.HttpUserPoolAuthorizer {
+    const importedUserPool = cognito.UserPool.fromUserPoolId(
+      this,
+      "ImportedHalAppAuthUserPool",
+      buildConfig.UserPoolID
+    );
+    const importedUserPoolClient = cognito.UserPoolClient.fromUserPoolClientId(
+      this,
+      "ImportedHalAppUserPoolClient",
+      buildConfig.UserPoolClientID
+    );
+
+    const authorizer = new apiGatewayAuthorizers.HttpUserPoolAuthorizer(
+      "Account-Authorizer",
+      importedUserPool,
+      {
+        userPoolRegion: buildConfig.Region,
+        userPoolClients: [importedUserPoolClient],
+        identitySource: ["$request.header.Authorization"],
+      }
+    );
+    return authorizer;
+  }
+  createGetOrganizationsHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const getOrganizationsHandler = new NodejsFunction(
+      this,
+      "AccountGetOrganizationsHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "AccountGetOrganizationsHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(15),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-get-organizations-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "getOrganizationsHandlerIntegration",
+        getOrganizationsHandler
+      ),
+      path: "/organizations",
+      authorizer,
+    });
+    accountDB.grantReadData(getOrganizationsHandler);
+    return getOrganizationsHandler;
   }
 }

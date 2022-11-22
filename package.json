@@ -9,7 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "esbuild":"node build.js",
+    "esbuild": "node build.js",
     "debug:org-enroll": "sam  local invoke -d 9995  -t ./cdk.out/HalappAccountStack.template.json AccountOrganizationEnrollmentHandler -e events/organization-enrollment.event.json --profile default --region eu-central-1"
   },
   "devDependencies": {
@@ -28,6 +28,9 @@
     "typescript": "~3.9.7"
   },
   "dependencies": {
+    "@aws-cdk/aws-apigatewayv2-alpha": "^2.51.1-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-authorizers-alpha": "^2.51.1-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "^2.51.1-alpha.0",
     "@aws-sdk/client-dynamodb": "^3.204.0",
     "@aws-sdk/client-s3": "^3.199.0",
     "@aws-sdk/client-ses": "^3.199.0",
@@ -39,7 +42,7 @@
     "@middy/http-json-body-parser": "^3.6.2",
     "@middy/http-response-serializer": "^3.6.2",
     "@middy/validator": "^3.6.2",
-    "aws-cdk-lib": "2.49.0",
+    "aws-cdk-lib": "^2.51.1",
     "class-transformer": "^0.5.1",
     "constructs": "^10.0.0",
     "ejs": "^3.1.8",

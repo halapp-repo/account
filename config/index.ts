@@ -43,7 +43,13 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "AUTH-SNSUserCreatedTopicArn"
     ),
+
+    ShouldCreateDynamoAccountDB:
+      ensureString(unparsedEnv, "ShouldCreateDynamoAccountDB") === "true",
     AccountDBName: ensureString(unparsedEnv, "AccountDBName"),
+
+    UserPoolID: ensureString(unparsedEnv, "UserPoolID"),
+    UserPoolClientID: ensureString(unparsedEnv, "UserPoolClientID"),
   };
   return buildConfig;
 }

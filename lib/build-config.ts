@@ -8,5 +8,10 @@ export interface BuildConfig {
   readonly S3OrganizationEnrollmentEmailTemplate: string;
   readonly AUTHSQSOrganizationCreatedQueueArn: string;
   readonly AUTHSNSUserCreatedTopicArn: string;
+
+  readonly ShouldCreateDynamoAccountDB: boolean;
   readonly AccountDBName: string;
+
+  readonly UserPoolID: string;
+  readonly UserPoolClientID: string;
 }
