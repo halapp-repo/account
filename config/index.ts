@@ -35,6 +35,21 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "S3OrganizationEnrollmentEmailTemplate"
     ),
+    AUTHSQSOrganizationCreatedQueueArn: ensureString(
+      unparsedEnv,
+      "AUTH-SQSOrganizationCreatedQueueArn"
+    ),
+    AUTHSNSUserCreatedTopicArn: ensureString(
+      unparsedEnv,
+      "AUTH-SNSUserCreatedTopicArn"
+    ),
+
+    ShouldCreateDynamoAccountDB:
+      ensureString(unparsedEnv, "ShouldCreateDynamoAccountDB") === "true",
+    AccountDBName: ensureString(unparsedEnv, "AccountDBName"),
+
+    UserPoolID: ensureString(unparsedEnv, "UserPoolID"),
+    UserPoolClientID: ensureString(unparsedEnv, "UserPoolClientID"),
   };
   return buildConfig;
 }

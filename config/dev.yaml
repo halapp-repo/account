@@ -5,3 +5,13 @@ Region: eu-central-1
 SESFromEmail: no-reply@halapp.io
 SESCCEmail: furkan.ozdeslik@gmail.com
 S3OrganizationEnrollmentEmailTemplate: organization-enrollment.ejs
+# comes from HalApp-Auth 
+AUTH-SQSOrganizationCreatedQueueArn: arn:aws:sqs:eu-central-1:963662274920:Auth-OrganizationCreatedQueue
+# comes from HalApp-Auth 
+AUTH-SNSUserCreatedTopicArn: arn:aws:sns:eu-central-1:963662274920:HalappAuth-DEVELOPMENT-UserCreatedTopic40AC1E1A-pLLbGK3y9KvW
+
+ShouldCreateDynamoAccountDB: "false"
+AccountDBName: HalAccount
+
+UserPoolID: eu-central-1_xGVP5Phra
+UserPoolClientID: 4fq0oja4v9fir2n3uh8mqbi2h0

@@ -1,7 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import * as ejs from "ejs";
 import { SESStore } from "../repositories/ses-store";
-import { OrganizationEnrollmentDTO } from "../models/dto/organization-enrollment.dto";
 import { SendEmailCommand } from "@aws-sdk/client-ses";
 import { S3Store } from "../repositories/s3-store";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
@@ -9,8 +8,8 @@ import createHttpError = require("http-errors");
 
 @injectable()
 export class SESService {
-  toAddress: string;
   fromAddress: string;
+  ccAddress: string;
   s3BucketName: string;
   emailTemplate: string;
   constructor(
@@ -19,11 +18,11 @@ export class SESService {
     @inject("S3Store")
     private s3Store: S3Store
   ) {
-    const { SESFromEmail, SESToEmail, S3BucketName, EmailTemplate } =
+    const { SESFromEmail, SESCCEmail, S3BucketName, EmailTemplate } =
       process.env;
-    if (!SESToEmail) {
+    if (!SESCCEmail) {
       throw new createHttpError.InternalServerError(
-        "SESToEmail must come from env"
+        "SESCCEmail must come from env"
       );
     }
     if (!SESFromEmail) {
@@ -41,14 +40,24 @@ export class SESService {
         "EmailTemplate must come from env"
       );
     }
-    this.toAddress = SESToEmail;
     this.fromAddress = SESFromEmail;
+    this.ccAddress = SESCCEmail;
     this.s3BucketName = S3BucketName;
     this.emailTemplate = EmailTemplate;
   }
-  async sendOrganizationEnrollmentEmail(
-    data: OrganizationEnrollmentDTO
-  ): Promise<void> {
+  async sendNewOrganizationCreatedEmail({
+    organizationName,
+    organizationID,
+    formattedAddress,
+    email,
+    phoneNumber,
+  }: {
+    organizationName: string;
+    organizationID: string;
+    formattedAddress: string;
+    email: string;
+    phoneNumber: string;
+  }): Promise<void> {
     const { Body } = await this.s3Store.s3Client.send(
       new GetObjectCommand({
         Bucket: this.s3BucketName,
@@ -56,18 +65,21 @@ export class SESService {
       })
     );
     // Convert the ReadableStream to a string.
-    const fileStr: string = await Body.transformToString();
+    const fileStr: string | undefined = await Body?.transformToString();
+    if (!fileStr) {
+      throw new Error("fileStr is undefined");
+    }
 
     const body = await ejs.render(fileStr, {
-      organizationName: data.organizationName,
-      formattedAddress: data.formattedAddress,
-      email: data.email,
-      phoneNumber: data.phoneNumber,
-      fullRequest: JSON.stringify(data),
+      organizationName,
+      organizationID,
+      formattedAddress,
+      email,
+      phoneNumber,
     });
     const sesCommand = new SendEmailCommand({
       Destination: {
-        ToAddresses: [this.toAddress],
+        ToAddresses: [this.ccAddress],
       },
       Message: {
         Body: {
@@ -76,11 +88,12 @@ export class SESService {
           },
         },
         Subject: {
-          Data: "Yeni Sirket Talebi",
+          Data: "Yeni Sirket Yaratildi",
         },
       },
       Source: this.fromAddress,
     });
     await this.sesStore.sesClient.send(sesCommand);
+    console.log("Message sent");
   }
 }
