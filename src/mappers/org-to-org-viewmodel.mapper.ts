@@ -29,6 +29,7 @@ export class OrgToOrgViewModelMapper extends IMapper<
         ZipCode: arg.InvoiceAddress.ZipCode,
       },
       CreatedDate: arg.CreatedDate.format(),
+      JoinedUsers: arg.JoinedUsers,
     } as OrganizationViewModel;
   }
   toModel(arg: OrganizationViewModel): Organization {

@@ -10,11 +10,9 @@ import {
   APIGatewayProxyEventV2WithJWTAuthorizer,
 } from "aws-lambda";
 import { diContainer } from "../../core/di-registry";
-import UserRepository from "../../repositories/user.repository";
-import OrganizationRepository from "../../repositories/organization.repository";
-import createHttpError = require("http-errors");
+import adminValidatorMiddleware from "../../middlewares/admin-validator.middleware";
+import { OrganizationService } from "../../services/organization.service";
 import { OrgToOrgViewModelMapper } from "../../mappers/org-to-org-viewmodel.mapper";
-import { OrganizationViewModel } from "../../models/viewmodel/organization.viewmodel";
 
 const lambdaHandler = async function (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -23,25 +21,14 @@ const lambdaHandler = async function (
   console.log(JSON.stringify(event, null, 2));
   console.log(JSON.stringify(context, null, 2));
 
-  const userRepo = diContainer.resolve(UserRepository);
-  const orgRepo = diContainer.resolve(OrganizationRepository);
+  const orgService = diContainer.resolve(OrganizationService);
   const orgVMMapper = diContainer.resolve(OrgToOrgViewModelMapper);
 
-  const currentUserId = event.requestContext.authorizer.jwt.claims["sub"];
-  if (!currentUserId) {
-    throw createHttpError.Unauthorized();
-  }
-  const currentUser = await userRepo.getUser(`${currentUserId}`);
-  if (!currentUser) {
-    throw createHttpError.BadRequest();
-  }
-  const organizationVMList: OrganizationViewModel[] = [];
-  for (const organizationId of currentUser?.JoinedOrganizations || []) {
-    const organization = await orgRepo.getOrg(organizationId);
-    if (organization) {
-      organizationVMList.push(orgVMMapper.toDTO(organization));
-    }
-  }
+  const organizationList = await orgService.fetchAllOrganizations();
+  console.log(JSON.stringify(organizationList, null, 2));
+
+  const organizationVMList = orgVMMapper.toListDTO(organizationList);
+
   return {
     statusCode: 200,
     body: JSON.stringify(organizationVMList),
@@ -54,6 +41,7 @@ const lambdaHandler = async function (
 const handler = middy(lambdaHandler)
   .use(httpResponseSerializer())
   .use(httpErrorHandler())
-  .use(cors());
+  .use(cors())
+  .use(adminValidatorMiddleware());
 
 export { handler, lambdaHandler };

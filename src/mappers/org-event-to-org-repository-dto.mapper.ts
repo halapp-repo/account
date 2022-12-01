@@ -1,14 +1,12 @@
 import { trMoment } from "../utils/timezone";
 import { AccountEventType } from "../models/account-event-type.enum";
-import {
-  AccountRepositoryDTO,
-  OrganizationRepositoryDTO,
-} from "../models/dto/account.repository.dto";
+import { OrganizationRepositoryDTO } from "../models/dto/account.repository.dto";
 import { OrganizationEvent } from "../models/events";
 import { OrganizationCreatedV1Payload } from "../models/events/organization-created-v1.event";
 import { IMapper } from "./base.mapper";
 import createHttpError = require("http-errors");
 import { UserJoinedV1Payload } from "../models/events/organization-userjoined-v1.event";
+import { OrganizationActivationToggledV1Payload } from "../models/events/organization-activation-changed-v1.event";
 
 export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
   OrganizationEvent,
@@ -47,6 +45,13 @@ export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
         TS: ts,
         EventType: eventType,
         Payload: payload as UserJoinedV1Payload,
+      };
+    } else if (eventType === AccountEventType.OrganizationActivationToggledV1) {
+      return {
+        OrgID: ID,
+        TS: ts,
+        EventType: eventType,
+        Payload: payload as OrganizationActivationToggledV1Payload,
       };
     } else {
       throw createHttpError.InternalServerError("Unsupported event type");

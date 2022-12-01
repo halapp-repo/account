@@ -7,6 +7,7 @@ import { trMoment } from "../utils/timezone";
 import { Transform, Type } from "class-transformer";
 import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
 import moment = require("moment");
+import { OrganizationActivationToggledV1Event } from "./events/organization-activation-changed-v1.event";
 
 class Address {
   AddressLine: string;
@@ -45,6 +46,11 @@ class Organization extends EventSourceAggregate {
       return;
     } else if (event.EventType == AccountEventType.UserJoinedV1) {
       this.whenUserJoinedV1(event);
+      return;
+    } else if (
+      event.EventType == AccountEventType.OrganizationActivationToggledV1
+    ) {
+      this.whenOrganizationActivationToggledV1(event);
       return;
     }
   }
@@ -87,6 +93,12 @@ class Organization extends EventSourceAggregate {
   whenUserJoinedV1(event: UserJoinedV1Event) {
     const { UserID } = event.Payload;
     this.JoinedUsers = [...(this.JoinedUsers || []), UserID];
+  }
+  whenOrganizationActivationToggledV1(
+    event: OrganizationActivationToggledV1Event
+  ) {
+    const { Activate } = event.Payload;
+    this.Active = Activate;
   }
   static create({
     vkn,
@@ -135,6 +147,20 @@ class Organization extends EventSourceAggregate {
       TS: trMoment(),
       Payload: {
         UserID: userId,
+      },
+    };
+    this.causes(event);
+  }
+  toggleActivationStatus(isActive: boolean): void {
+    if (this.Active === isActive) {
+      return;
+    }
+    const event = <OrganizationActivationToggledV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationActivationToggledV1,
+      TS: trMoment(),
+      Payload: {
+        Activate: isActive,
       },
     };
     this.causes(event);
