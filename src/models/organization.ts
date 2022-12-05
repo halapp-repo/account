@@ -7,6 +7,8 @@ import { trMoment } from "../utils/timezone";
 import { Transform, Type } from "class-transformer";
 import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
 import moment = require("moment");
+import { OrganizationActivationToggledV1Event } from "./events/organization-activation-toggled-v1.event";
+import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
 
 class Address {
   AddressLine: string;
@@ -40,11 +42,19 @@ class Organization extends EventSourceAggregate {
   CreatedDate: moment.Moment;
 
   apply(event: OrganizationEvent): void {
-    if (event.EventType == AccountEventType.OrganizationCreatedV1) {
+    if (event.EventType === AccountEventType.OrganizationCreatedV1) {
       this.whenOrganizationCreatedV1(event);
       return;
-    } else if (event.EventType == AccountEventType.UserJoinedV1) {
+    } else if (event.EventType === AccountEventType.UserJoinedV1) {
       this.whenUserJoinedV1(event);
+      return;
+    } else if (
+      event.EventType === AccountEventType.OrganizationActivationToggledV1
+    ) {
+      this.whenOrganizationActivationToggledV1(event);
+      return;
+    } else if (event.EventType === AccountEventType.OrganizationUpdatedV1) {
+      this.whenOrganizationUpdatedV1(event);
       return;
     }
   }
@@ -88,6 +98,46 @@ class Organization extends EventSourceAggregate {
     const { UserID } = event.Payload;
     this.JoinedUsers = [...(this.JoinedUsers || []), UserID];
   }
+  whenOrganizationActivationToggledV1(
+    event: OrganizationActivationToggledV1Event
+  ) {
+    const { Activate } = event.Payload;
+    this.Active = Activate;
+  }
+  whenOrganizationUpdatedV1(event: OrganizationUpdatedV1Event) {
+    const {
+      Name,
+      Email,
+      PhoneNumber,
+      CompanyAddressLine,
+      CompanyCity,
+      CompanyCountry,
+      CompanyCounty,
+      CompanyZipCode,
+      InvoiceAddressLine,
+      InvoiceCity,
+      InvoiceCountry,
+      InvoiceCounty,
+      InvoiceZipCode,
+    } = event.Payload;
+    Name && (this.Name = Name);
+    Email && (this.Email = Email);
+    PhoneNumber && (this.PhoneNumber = PhoneNumber);
+
+    CompanyAddressLine &&
+      (this.CompanyAddress.AddressLine = CompanyAddressLine);
+    CompanyCity && (this.CompanyAddress.City = CompanyCity);
+    CompanyCountry && (this.CompanyAddress.Country = CompanyCountry);
+    CompanyCounty && (this.CompanyAddress.County = CompanyCounty);
+    CompanyZipCode && (this.CompanyAddress.ZipCode = CompanyZipCode);
+
+    InvoiceAddressLine &&
+      (this.InvoiceAddress.AddressLine = InvoiceAddressLine);
+    InvoiceCity && (this.InvoiceAddress.City = InvoiceCity);
+    InvoiceCountry && (this.InvoiceAddress.Country = InvoiceCountry);
+    InvoiceCounty && (this.InvoiceAddress.County = InvoiceCounty);
+    InvoiceZipCode && (this.InvoiceAddress.ZipCode = InvoiceZipCode);
+  }
   static create({
     vkn,
     organizationName,
@@ -124,7 +174,6 @@ class Organization extends EventSourceAggregate {
     org.causes(event);
     return org;
   }
-
   userJoin(userId: string): void {
     if (this.JoinedUsers?.includes(userId)) {
       return;
@@ -135,6 +184,97 @@ class Organization extends EventSourceAggregate {
       TS: trMoment(),
       Payload: {
         UserID: userId,
+      },
+    };
+    this.causes(event);
+  }
+  toggleActivationStatus(isActive: boolean): void {
+    if (this.Active === isActive) {
+      return;
+    }
+    const event = <OrganizationActivationToggledV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationActivationToggledV1,
+      TS: trMoment(),
+      Payload: {
+        Activate: isActive,
+      },
+    };
+    this.causes(event);
+  }
+  update(organization: Organization): void {
+    const event = <OrganizationUpdatedV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationUpdatedV1,
+      TS: trMoment(),
+      Payload: {
+        ...(this.Name !== organization.Name
+          ? { Name: organization.Name }
+          : null),
+        ...(this.Email !== organization.Email
+          ? {
+              Email: organization.Email,
+            }
+          : null),
+        ...(this.PhoneNumber !== organization.PhoneNumber
+          ? {
+              PhoneNumber: organization.PhoneNumber,
+            }
+          : null),
+        //
+        ...(this.CompanyAddress.AddressLine !==
+        organization.CompanyAddress.AddressLine
+          ? {
+              CompanyAddressLine: organization.CompanyAddress.AddressLine,
+            }
+          : null),
+        ...(this.CompanyAddress.City !== organization.CompanyAddress.City
+          ? {
+              CompanyCity: organization.CompanyAddress.City,
+            }
+          : null),
+        ...(this.CompanyAddress.Country !== organization.CompanyAddress.Country
+          ? {
+              CompanyCountry: organization.CompanyAddress.Country,
+            }
+          : null),
+        ...(this.CompanyAddress.County !== organization.CompanyAddress.County
+          ? {
+              CompanyCounty: organization.CompanyAddress.County,
+            }
+          : null),
+        ...(this.CompanyAddress.ZipCode !== organization.CompanyAddress.ZipCode
+          ? {
+              CompanyZipCode: organization.CompanyAddress.ZipCode,
+            }
+          : null),
+        //
+        ...(this.InvoiceAddress.AddressLine !==
+        organization.InvoiceAddress.AddressLine
+          ? {
+              InvoiceAddressLine: organization.InvoiceAddress.AddressLine,
+            }
+          : null),
+        ...(this.InvoiceAddress.City !== organization.InvoiceAddress.City
+          ? {
+              InvoiceCity: organization.InvoiceAddress.City,
+            }
+          : null),
+        ...(this.InvoiceAddress.Country !== organization.InvoiceAddress.Country
+          ? {
+              InvoiceCountry: organization.InvoiceAddress.Country,
+            }
+          : null),
+        ...(this.InvoiceAddress.County !== organization.InvoiceAddress.County
+          ? {
+              InvoiceCounty: organization.InvoiceAddress.County,
+            }
+          : null),
+        ...(this.InvoiceAddress.ZipCode !== organization.InvoiceAddress.ZipCode
+          ? {
+              InvoiceZipCode: organization.InvoiceAddress.ZipCode,
+            }
+          : null),
       },
     };
     this.causes(event);

@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoStore } from "./dynamo-store";
 import createHttpError = require("http-errors");
 import { OrganizationEvent } from "../models/events";
@@ -101,5 +101,34 @@ export default class OrganizationRepository {
       org.apply(event);
     }
     return org;
+  }
+  async getAllOrgIds(): Promise<string[] | null> {
+    const command = new ScanCommand({
+      TableName: this.tableName,
+      IndexName: "VKNIndex",
+    });
+    const { Items } = await this.store.dynamoClient.send(command);
+    if (!Items) {
+      return null;
+    }
+    const listOfEvents = this.mapper.toListModel(
+      Items.map((i) => {
+        return <OrganizationRepositoryDTO>{
+          AccountID: i["AccountID"],
+          TS: i["TS"],
+          EventType: i["EventType"],
+          Payload: i["Payload"],
+          VKN: i["VKN"],
+        };
+      })
+    );
+    const sortedEvents = listOfEvents.sort(getComparator("asc", "TS"));
+    const organizationIds: string[] = [];
+    for (const event of sortedEvents) {
+      const org = new Organization();
+      org.apply(event);
+      organizationIds.push(org.ID);
+    }
+    return [...new Set(organizationIds)];
   }
 }

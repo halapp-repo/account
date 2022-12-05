@@ -9,6 +9,7 @@ import { S3Store } from "../repositories/s3-store";
 import { SESStore } from "../repositories/ses-store";
 import { SNSStore } from "../repositories/sns-store";
 import UserRepository from "../repositories/user.repository";
+import { OrganizationService } from "../services/organization.service";
 
 container.registerSingleton<SESStore>("SESStore", SESStore);
 container.registerSingleton<S3Store>("S3Store", S3Store);
@@ -31,6 +32,9 @@ container.register("OrgToOrgViewModelMapper", {
 });
 container.register("UserToUserViewModelMapper", {
   useClass: UserToUserViewModelMapper,
+});
+container.register("OrganizationService", {
+  useClass: OrganizationService,
 });
 
 export const diContainer = container;

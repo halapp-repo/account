@@ -71,6 +71,24 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
+    this.createAdminPutOrganizationToggleActivationHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
+    this.createAdminGetOrganizationsHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
+    this.createPutOrganizationUpdateHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -376,5 +394,140 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadData(getOrganizationsHandler);
     return getOrganizationsHandler;
+  }
+  createAdminPutOrganizationToggleActivationHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const adminPutOrganizationActivationChangedHandler = new NodejsFunction(
+      this,
+      "AccountAdminPutOrganizationActivationChangedHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "AccountAdminPutOrganizationActivationChangedHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-admin-put-organization-activation-status-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.PUT],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "adminPutOrganizationActivationChangedHandlerIntegration",
+        adminPutOrganizationActivationChangedHandler
+      ),
+      path: "/admin/organization/{id}",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(adminPutOrganizationActivationChangedHandler);
+    return adminPutOrganizationActivationChangedHandler;
+  }
+  createAdminGetOrganizationsHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const adminGetOrganizationsHandler = new NodejsFunction(
+      this,
+      "AccountAdminGetOrganizationsHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "AccountAdminGetOrganizationsHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-admin-get-organizations-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "adminGetOrganizationsHandlerIntegration",
+        adminGetOrganizationsHandler
+      ),
+      path: "/admin/organizations",
+      authorizer,
+    });
+    accountDB.grantReadData(adminGetOrganizationsHandler);
+    return adminGetOrganizationsHandler;
+  }
+  createPutOrganizationUpdateHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const putOrganizationUpdateHandler = new NodejsFunction(
+      this,
+      "PutOrganizationsUpdateHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "PutOrganizationsUpdateHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-put-organization-update-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.PUT],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "putOrganizationsUpdateHandlerIntegration",
+        putOrganizationUpdateHandler
+      ),
+      path: "/organization/{organizationId}",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(putOrganizationUpdateHandler);
+    return putOrganizationUpdateHandler;
   }
 }

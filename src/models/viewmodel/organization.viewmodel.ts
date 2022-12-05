@@ -1,5 +1,3 @@
-import { UserViewModel } from "./user.viewmode";
-
 interface AddressViewModel {
   AddressLine: string;
   County: string;
@@ -19,7 +17,7 @@ interface OrganizationViewModel {
   CompanyAddress: AddressViewModel;
   InvoiceAddress: AddressViewModel;
 
-  JoinedUsers: UserViewModel[];
+  JoinedUsers: string[];
 
   CreatedDate: string;
 }
