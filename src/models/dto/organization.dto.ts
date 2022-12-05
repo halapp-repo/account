@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 
-class OrganizationAddressDTO {
+export class OrganizationAddressDTO {
   AddressLine: string;
   County: string;
   City: string;

@@ -83,6 +83,12 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
+    this.createPutOrganizationUpdateHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -478,5 +484,50 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadData(adminGetOrganizationsHandler);
     return adminGetOrganizationsHandler;
+  }
+  createPutOrganizationUpdateHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const putOrganizationUpdateHandler = new NodejsFunction(
+      this,
+      "PutOrganizationsUpdateHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "PutOrganizationsUpdateHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-put-organization-update-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.PUT],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "putOrganizationsUpdateHandlerIntegration",
+        putOrganizationUpdateHandler
+      ),
+      path: "/organization/{organizationId}",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(putOrganizationUpdateHandler);
+    return putOrganizationUpdateHandler;
   }
 }

@@ -6,7 +6,8 @@ import { OrganizationCreatedV1Payload } from "../models/events/organization-crea
 import { IMapper } from "./base.mapper";
 import createHttpError = require("http-errors");
 import { UserJoinedV1Payload } from "../models/events/organization-userjoined-v1.event";
-import { OrganizationActivationToggledV1Payload } from "../models/events/organization-activation-changed-v1.event";
+import { OrganizationActivationToggledV1Payload } from "../models/events/organization-activation-toggled-v1.event";
+import { OrganizationUpdatedV1Payload } from "../models/events/organization-updated-v1.event";
 
 export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
   OrganizationEvent,
@@ -52,6 +53,13 @@ export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
         TS: ts,
         EventType: eventType,
         Payload: payload as OrganizationActivationToggledV1Payload,
+      };
+    } else if (eventType === AccountEventType.OrganizationUpdatedV1) {
+      return {
+        OrgID: ID,
+        TS: ts,
+        EventType: eventType,
+        Payload: payload as OrganizationUpdatedV1Payload,
       };
     } else {
       throw createHttpError.InternalServerError("Unsupported event type");
