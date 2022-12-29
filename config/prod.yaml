@@ -1,5 +1,5 @@
 AWSAccountID: "751021557844"
-App: "HalappAuth"
+App: "HalappAccount"
 Environment: PRODUCTION
 Region: eu-central-1
 SESFromEmail: no-reply@halapp.io

@@ -9,8 +9,10 @@ import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
 import moment = require("moment");
 import { OrganizationActivationToggledV1Event } from "./events/organization-activation-toggled-v1.event";
 import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
+import { OrganizationUpdateDeliveryAddressesV1Event } from "./events/organization-update-delivery-addresses-v1.event";
 
 class Address {
+  Active?: boolean;
   AddressLine: string;
   County: string;
   City: string;
@@ -28,6 +30,9 @@ class Organization extends EventSourceAggregate {
 
   @Type(() => Address)
   InvoiceAddress: Address = new Address();
+
+  @Type(() => Address)
+  DeliveryAddresses: Address[] = [];
 
   PhoneNumber: string;
   Email: string;
@@ -55,6 +60,11 @@ class Organization extends EventSourceAggregate {
       return;
     } else if (event.EventType === AccountEventType.OrganizationUpdatedV1) {
       this.whenOrganizationUpdatedV1(event);
+      return;
+    } else if (
+      event.EventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1
+    ) {
+      this.whenOrganizationUpdateDeliveryAddressesV1(event);
       return;
     }
   }
@@ -137,6 +147,11 @@ class Organization extends EventSourceAggregate {
     InvoiceCountry && (this.InvoiceAddress.Country = InvoiceCountry);
     InvoiceCounty && (this.InvoiceAddress.County = InvoiceCounty);
     InvoiceZipCode && (this.InvoiceAddress.ZipCode = InvoiceZipCode);
+  }
+  whenOrganizationUpdateDeliveryAddressesV1(
+    event: OrganizationUpdateDeliveryAddressesV1Event
+  ) {
+    this.DeliveryAddresses = [...event.Payload.DeliveryAddresses];
   }
   static create({
     vkn,
@@ -278,6 +293,20 @@ class Organization extends EventSourceAggregate {
       },
     };
     this.causes(event);
+  }
+  updateDeliveryAddresses(deliveryAddresses: Address[]): void {
+    const event = <OrganizationUpdateDeliveryAddressesV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationUpdateDeliveryAddressesV1,
+      TS: trMoment(),
+      Payload: {
+        DeliveryAddresses: deliveryAddresses,
+      },
+    };
+    this.causes(event);
+  }
+  hasUser(userId: string): boolean {
+    return this.JoinedUsers.includes(userId);
   }
 }
 

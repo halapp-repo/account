@@ -1,5 +1,8 @@
 import { Organization } from "../models/organization";
-import { OrganizationViewModel } from "../models/viewmodel/organization.viewmodel";
+import {
+  AddressViewModel,
+  OrganizationViewModel,
+} from "../models/viewmodel/organization.viewmodel";
 import { IMapper } from "./base.mapper";
 
 export class OrgToOrgViewModelMapper extends IMapper<
@@ -30,6 +33,17 @@ export class OrgToOrgViewModelMapper extends IMapper<
       },
       CreatedDate: arg.CreatedDate.format(),
       JoinedUsers: arg.JoinedUsers,
+      DeliveryAddresses: arg.DeliveryAddresses.map(
+        (a) =>
+          ({
+            AddressLine: a.AddressLine,
+            City: a.City,
+            Country: a.Country,
+            County: a.County,
+            ZipCode: a.ZipCode,
+            Active: a.Active,
+          } as AddressViewModel)
+      ),
     } as OrganizationViewModel;
   }
   toModel(arg: OrganizationViewModel): Organization {

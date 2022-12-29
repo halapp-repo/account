@@ -1,6 +1,7 @@
 import { Type } from "class-transformer";
 
 export class OrganizationAddressDTO {
+  Active?: boolean;
   AddressLine: string;
   County: string;
   City: string;

@@ -89,6 +89,17 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
+    this.createPostOrganizationUpdateDeliveryAddressesHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
+
+    // *****************************
+    // Create Lambda Invoke Handler
+    // *****************************
+    this.createOrganizationHasUserHandler(buildConfig, accountDB);
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -529,5 +540,86 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadWriteData(putOrganizationUpdateHandler);
     return putOrganizationUpdateHandler;
+  }
+  createPostOrganizationUpdateDeliveryAddressesHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const postOrganizationUpdateDeliveryAddressesHandler = new NodejsFunction(
+      this,
+      "PostOrganizationsUpdateDeliveryAddressesHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_16_X,
+        functionName: "PostOrganizationsUpdateDeliveryAddressesHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/account-post-organization-update-delivery-addresses-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.POST],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PostOrganizationsUpdateDeliveryAddressesHandlerIntegration",
+        postOrganizationUpdateDeliveryAddressesHandler
+      ),
+      path: "/organization/{organizationId}/deliveryaddresses",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(
+      postOrganizationUpdateDeliveryAddressesHandler
+    );
+    return postOrganizationUpdateDeliveryAddressesHandler;
+  }
+  createOrganizationHasUserHandler(
+    buildConfig: BuildConfig,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const organizationHasUser = new NodejsFunction(
+      this,
+      "OrganizationsUserExists",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "OrganizationsUserExists",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/user/exists.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountDB.grantReadData(organizationHasUser);
+    return organizationHasUser;
   }
 }

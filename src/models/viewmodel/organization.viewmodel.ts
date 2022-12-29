@@ -1,4 +1,5 @@
 interface AddressViewModel {
+  Active?: boolean;
   AddressLine: string;
   County: string;
   City: string;
@@ -20,6 +21,8 @@ interface OrganizationViewModel {
   JoinedUsers: string[];
 
   CreatedDate: string;
+
+  DeliveryAddresses: AddressViewModel[];
 }
 
-export { OrganizationViewModel };
+export { OrganizationViewModel, AddressViewModel };
