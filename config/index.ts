@@ -25,7 +25,7 @@ function getConfig(app: cdk.App): BuildConfig {
     readFileSync(resolve(__dirname, `../config/${env}.yaml`), "utf8")
   );
   const buildConfig: BuildConfig = {
-    AWSAccountID: ensureString(unparsedEnv, "AWSAccountID"),
+    AccountID: ensureString(unparsedEnv, "AccountID"),
     App: ensureString(unparsedEnv, "App"),
     Environment: ensureString(unparsedEnv, "Environment"),
     Region: ensureString(unparsedEnv, "Region"),
@@ -35,14 +35,6 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "S3OrganizationEnrollmentEmailTemplate"
     ),
-    AUTHSQSOrganizationCreatedQueueArn: ensureString(
-      unparsedEnv,
-      "AUTH-SQSOrganizationCreatedQueueArn"
-    ),
-    AUTHSNSUserCreatedTopicArn: ensureString(
-      unparsedEnv,
-      "AUTH-SNSUserCreatedTopicArn"
-    ),
 
     ShouldCreateDynamoAccountDB:
       ensureString(unparsedEnv, "ShouldCreateDynamoAccountDB") === "true",
@@ -50,6 +42,28 @@ function getConfig(app: cdk.App): BuildConfig {
 
     UserPoolID: ensureString(unparsedEnv, "UserPoolID"),
     UserPoolClientID: ensureString(unparsedEnv, "UserPoolClientID"),
+
+    AUTH_SNSUserCreatedTopic: ensureString(
+      unparsedEnv,
+      "AUTH_SNSUserCreatedTopic"
+    ),
+    AUTH_SNSUserJoinedOrganizationTopic: ensureString(
+      unparsedEnv,
+      "AUTH_SNSUserJoinedOrganizationTopic"
+    ),
+    SNSOrganizationCreatedTopic: ensureString(
+      unparsedEnv,
+      "SNSOrganizationCreatedTopic"
+    ),
+    AUTH_SQSOrganizationCreatedQueue: ensureString(
+      unparsedEnv,
+      "AUTH_SQSOrganizationCreatedQueue"
+    ),
+    SQSUserCreatedQueue: ensureString(unparsedEnv, "SQSUserCreatedQueue"),
+    SQSUserJoinedOrganizationQueue: ensureString(
+      unparsedEnv,
+      "SQSUserJoinedOrganizationQueue"
+    ),
   };
   return buildConfig;
 }

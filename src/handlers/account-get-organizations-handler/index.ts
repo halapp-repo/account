@@ -14,7 +14,7 @@ import UserRepository from "../../repositories/user.repository";
 import OrganizationRepository from "../../repositories/organization.repository";
 import createHttpError = require("http-errors");
 import { OrgToOrgViewModelMapper } from "../../mappers/org-to-org-viewmodel.mapper";
-import { OrganizationViewModel } from "../../models/viewmodel/organization.viewmodel";
+import { OrganizationVM } from "@halapp/common";
 
 const lambdaHandler = async function (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -35,7 +35,7 @@ const lambdaHandler = async function (
   if (!currentUser) {
     throw createHttpError.BadRequest();
   }
-  const organizationVMList: OrganizationViewModel[] = [];
+  const organizationVMList: OrganizationVM[] = [];
   for (const organizationId of currentUser?.JoinedOrganizations || []) {
     const organization = await orgRepo.getOrg(organizationId);
     if (organization) {

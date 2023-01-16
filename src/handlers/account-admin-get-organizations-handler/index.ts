@@ -24,7 +24,7 @@ const lambdaHandler = async function (
   const orgService = diContainer.resolve(OrganizationService);
   const orgVMMapper = diContainer.resolve(OrgToOrgViewModelMapper);
 
-  const organizationList = await orgService.fetchAllOrganizations();
+  const organizationList = await orgService.fetchAll();
   console.log(JSON.stringify(organizationList, null, 2));
 
   const organizationVMList = orgVMMapper.toListDTO(organizationList);

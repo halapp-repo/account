@@ -1,18 +1,16 @@
-import { Organization } from "../models/organization";
 import { User } from "../models/user";
-import { OrganizationViewModel } from "../models/viewmodel/organization.viewmodel";
-import { UserViewModel } from "../models/viewmodel/user.viewmode";
+import { UserVM } from "@halapp/common";
 import { IMapper } from "./base.mapper";
 
-export class UserToUserViewModelMapper extends IMapper<User, UserViewModel> {
-  toDTO(arg: User): UserViewModel {
+export class UserToUserViewModelMapper extends IMapper<User, UserVM> {
+  toDTO(arg: User): UserVM {
     return {
       Active: arg.Active,
       Email: arg.Email,
       ID: arg.ID,
-    } as UserViewModel;
+    } as UserVM;
   }
-  toModel(arg: UserViewModel): User {
+  toModel(arg: UserVM): User {
     throw new Error("Not Implemented");
   }
 }

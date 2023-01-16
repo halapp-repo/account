@@ -3,6 +3,7 @@ import { AccountEventType } from "./account-event-type.enum";
 import EventSourceAggregate from "./event-source-aggregate";
 import { UserEvent } from "./events";
 import { UserCreatedV1Event } from "./events/user-created-v1.event";
+import { UserJoinedOrganizationV1Event } from "./events/user-joined-organization-v1.event";
 
 class User extends EventSourceAggregate {
   ID: string;
@@ -13,6 +14,8 @@ class User extends EventSourceAggregate {
   apply(event: UserEvent): void {
     if (event.EventType === AccountEventType.UserCreatedV1) {
       this.whenUserCreatedV1(event);
+    } else if (event.EventType === AccountEventType.UserJoinedV1) {
+      this.whenUserJoinedOrganizationV1(event);
     }
   }
   causes(event: UserEvent): void {
@@ -25,6 +28,12 @@ class User extends EventSourceAggregate {
     this.Active = Active;
     this.Email = Email;
     this.JoinedOrganizations = [OrganizationID];
+  }
+  whenUserJoinedOrganizationV1(event: UserJoinedOrganizationV1Event) {
+    const { OrganizationID } = event.Payload;
+    this.JoinedOrganizations = [
+      ...new Set([...this.JoinedOrganizations, OrganizationID]),
+    ];
   }
   static create({
     id,
@@ -50,6 +59,20 @@ class User extends EventSourceAggregate {
     const user = new User();
     user.causes(event);
     return user;
+  }
+  joinOrganization(organizationId: string) {
+    if (this.JoinedOrganizations?.includes(organizationId)) {
+      return;
+    }
+    const event = <UserJoinedOrganizationV1Event>{
+      UserID: this.ID,
+      EventType: AccountEventType.UserJoinedV1,
+      TS: trMoment(),
+      Payload: {
+        OrganizationID: organizationId,
+      },
+    };
+    this.causes(event);
   }
 }
 
