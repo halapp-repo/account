@@ -1,15 +1,12 @@
 import { Organization } from "../models/organization";
-import {
-  AddressViewModel,
-  OrganizationViewModel,
-} from "../models/viewmodel/organization.viewmodel";
+import { AddressVM, OrganizationVM } from "@halapp/common";
 import { IMapper } from "./base.mapper";
 
 export class OrgToOrgViewModelMapper extends IMapper<
   Organization,
-  OrganizationViewModel
+  OrganizationVM
 > {
-  toDTO(arg: Organization): OrganizationViewModel {
+  toDTO(arg: Organization): OrganizationVM {
     return {
       VKN: arg.VKN,
       ID: arg.ID,
@@ -42,11 +39,11 @@ export class OrgToOrgViewModelMapper extends IMapper<
             County: a.County,
             ZipCode: a.ZipCode,
             Active: a.Active,
-          } as AddressViewModel)
+          } as AddressVM)
       ),
-    } as OrganizationViewModel;
+    } as OrganizationVM;
   }
-  toModel(arg: OrganizationViewModel): Organization {
+  toModel(arg: OrganizationVM): Organization {
     throw new Error("Not Implemented");
   }
 }

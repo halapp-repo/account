@@ -23,8 +23,15 @@ export class OrganizationService {
   async hasUser(organizationId: string, userId: string): Promise<boolean> {
     const organization = await this.repo.getOrg(organizationId);
     if (!organization) {
-      throw createHttpError.BadRequest();
+      throw new createHttpError.BadRequest();
     }
     return organization.hasUser(userId);
+  }
+  async fetchById(id: string): Promise<Organization> {
+    const organization = await this.repo.getOrg(id);
+    if (!organization) {
+      throw new createHttpError.NotFound();
+    }
+    return organization;
   }
 }

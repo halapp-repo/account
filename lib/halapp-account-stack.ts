@@ -51,6 +51,11 @@ export class HalappAccountStack extends cdk.Stack {
     // Create SQS (User Created)
     // ****************
     const userCreatedSQS = this.createUserCreatedQueue(buildConfig);
+    // **************
+    // Create SQS (User Joined Organization)
+    // ****************
+    const userJoinedOrganizationSQS =
+      this.createUserJoinedOrganizationQueue(buildConfig);
 
     // ********************
     // Create API Gateway
@@ -65,6 +70,11 @@ export class HalappAccountStack extends cdk.Stack {
       importedEmailTemplateBucket
     );
     this.userCreatedHandler(buildConfig, userCreatedSQS, accountDB);
+    this.userJoinedOrganizationHandler(
+      buildConfig,
+      userJoinedOrganizationSQS,
+      accountDB
+    );
     this.createGetOrganizationsHandler(
       buildConfig,
       accountApi,
@@ -95,6 +105,7 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
+    this.createGetOrganizationHandler(buildConfig, accountDB);
 
     // *****************************
     // Create Lambda Invoke Handler
@@ -238,12 +249,13 @@ export class HalappAccountStack extends cdk.Stack {
       "OrganizationCreatedTopic",
       {
         displayName: "OrganizationCreatedTopic",
+        topicName: buildConfig.SNSOrganizationCreatedTopic,
       }
     );
     const importedOrganizationCreatedQueue = sqs.Queue.fromQueueArn(
       this,
       "ImportedOrganizationCreatedQueue",
-      buildConfig.AUTHSQSOrganizationCreatedQueueArn
+      `arn:aws:sqs:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.AUTH_SQSOrganizationCreatedQueue}`
     );
     if (!importedOrganizationCreatedQueue) {
       throw new Error("ImportedOrganizationCreatedQueue was not imported");
@@ -255,11 +267,11 @@ export class HalappAccountStack extends cdk.Stack {
   }
   createUserCreatedQueue(buildConfig: BuildConfig): cdk.aws_sqs.Queue {
     const userCreatedDLQ = new sqs.Queue(this, "Auth-UserCreatedDLQ", {
-      queueName: "Auth-UserCreatedDLQ",
+      queueName: `${buildConfig.SQSUserCreatedQueue}DLQ`,
       retentionPeriod: cdk.Duration.hours(10),
     });
     const userCreatedQueue = new sqs.Queue(this, "Auth-UserCreatedQueue", {
-      queueName: "Auth-UserCreatedQueue",
+      queueName: buildConfig.SQSUserCreatedQueue,
       visibilityTimeout: cdk.Duration.minutes(2),
       retentionPeriod: cdk.Duration.days(1),
       deadLetterQueue: {
@@ -279,7 +291,7 @@ export class HalappAccountStack extends cdk.Stack {
           },
           ArnLike: {
             // Allows all buckets to send notifications since we haven't created the bucket yet.
-            "aws:SourceArn": "arn:aws:sns:*:*:*",
+            "aws:SourceArn": `arn:aws:sns:*:*:${buildConfig.AUTH_SNSUserCreatedTopic}`,
           },
         },
       })
@@ -287,7 +299,7 @@ export class HalappAccountStack extends cdk.Stack {
     const importedUserCreatedTopic = sns.Topic.fromTopicArn(
       this,
       "ImportedUserCreatedTopic",
-      buildConfig.AUTHSNSUserCreatedTopicArn
+      `arn:aws:sns:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.AUTH_SNSUserCreatedTopic}`
     );
     if (!importedUserCreatedTopic) {
       throw new Error("ImportedUserCreatedTopic needs to come from auth");
@@ -296,6 +308,62 @@ export class HalappAccountStack extends cdk.Stack {
       new subs.SqsSubscription(userCreatedQueue)
     );
     return userCreatedQueue;
+  }
+  createUserJoinedOrganizationQueue(
+    buildConfig: BuildConfig
+  ): cdk.aws_sqs.Queue {
+    const userJoinedOrganizationDLQ = new sqs.Queue(
+      this,
+      "Auth-UserJoinedOrganizationDLQ",
+      {
+        queueName: `${buildConfig.SQSUserJoinedOrganizationQueue}DLQ`,
+        retentionPeriod: cdk.Duration.hours(10),
+      }
+    );
+    const userJoinedOrganizationQueue = new sqs.Queue(
+      this,
+      "Auth-UserJoinedOrganizationQueue",
+      {
+        queueName: buildConfig.SQSUserJoinedOrganizationQueue,
+        visibilityTimeout: cdk.Duration.minutes(2),
+        retentionPeriod: cdk.Duration.days(1),
+        deadLetterQueue: {
+          queue: userJoinedOrganizationDLQ,
+          maxReceiveCount: 4,
+        },
+      }
+    );
+    userJoinedOrganizationQueue.addToResourcePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        principals: [new ServicePrincipal("sns.amazonaws.com")],
+        actions: ["sqs:SendMessage"],
+        resources: [userJoinedOrganizationQueue.queueArn],
+        conditions: {
+          StringEquals: {
+            "aws:SourceAccount": this.account,
+          },
+          ArnLike: {
+            // Allows all buckets to send notifications since we haven't created the bucket yet.
+            "aws:SourceArn": `arn:aws:sns:*:*:${buildConfig.AUTH_SNSUserJoinedOrganizationTopic}`,
+          },
+        },
+      })
+    );
+    const importedUserJoinedOrganizationTopic = sns.Topic.fromTopicArn(
+      this,
+      "ImportedUserJoinedOrganizationTopic",
+      `arn:aws:sns:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.AUTH_SNSUserJoinedOrganizationTopic}`
+    );
+    if (!importedUserJoinedOrganizationTopic) {
+      throw new Error(
+        "ImportedUserJoinedOrganizationTopic needs to come from auth"
+      );
+    }
+    importedUserJoinedOrganizationTopic.addSubscription(
+      new subs.SqsSubscription(userJoinedOrganizationQueue)
+    );
+    return userJoinedOrganizationQueue;
   }
   userCreatedHandler(
     buildConfig: BuildConfig,
@@ -335,6 +403,45 @@ export class HalappAccountStack extends cdk.Stack {
     );
     accountDB.grantReadWriteData(userCreatedHandler);
     return userCreatedHandler;
+  }
+  userJoinedOrganizationHandler(
+    buildConfig: BuildConfig,
+    userJoinedOrganizationSQS: cdk.aws_sqs.Queue,
+    accountDB: cdk.aws_dynamodb.ITable
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const userJoinedOrganizationHandler = new NodejsFunction(
+      this,
+      "Account-SqsUserJoinedOrganizationHandler",
+      {
+        memorySize: 1024,
+        timeout: cdk.Duration.minutes(1),
+        functionName: "Account-SqsUserJoinedOrganizationHandler",
+        runtime: lambda.Runtime.NODEJS_16_X,
+        handler: "handler",
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/user-joined-organization-handler/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    userJoinedOrganizationHandler.addEventSource(
+      new SqsEventSource(userJoinedOrganizationSQS, {
+        batchSize: 1,
+      })
+    );
+    accountDB.grantReadWriteData(userJoinedOrganizationHandler);
+    return userJoinedOrganizationHandler;
   }
   importAuthorizer(
     buildConfig: BuildConfig
@@ -621,5 +728,39 @@ export class HalappAccountStack extends cdk.Stack {
     );
     accountDB.grantReadData(organizationHasUser);
     return organizationHasUser;
+  }
+  createGetOrganizationHandler(
+    buildConfig: BuildConfig,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const getOrganizationHandler = new NodejsFunction(
+      this,
+      "AccountGetOrganizationHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "AccountGetOrganizationHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/get/organization/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountDB.grantReadData(getOrganizationHandler);
+    return getOrganizationHandler;
   }
 }
