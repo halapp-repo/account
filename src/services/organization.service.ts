@@ -27,10 +27,27 @@ export class OrganizationService {
     }
     return organization.hasUser(userId);
   }
-  async fetchById(id: string): Promise<Organization> {
+  async fetchByIdInvokedByLambda(id: string): Promise<Organization> {
     const organization = await this.repo.getOrg(id);
     if (!organization) {
       throw new createHttpError.NotFound();
+    }
+    return organization;
+  }
+  async fetchByIdInvokedByApiGateway(
+    id: string,
+    currentUserId?: string,
+    isAdmin?: boolean
+  ): Promise<Organization> {
+    if (!id) {
+      throw new createHttpError.BadRequest();
+    }
+    const organization = await this.repo.getOrg(id);
+    if (!organization) {
+      throw new createHttpError.NotFound();
+    }
+    if (!currentUserId || (!isAdmin && !organization.hasUser(currentUserId))) {
+      throw createHttpError.Unauthorized();
     }
     return organization;
   }

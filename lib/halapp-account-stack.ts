@@ -105,7 +105,12 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
-    this.createGetOrganizationHandler(buildConfig, accountDB);
+    this.createGetOrganizationHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
 
     // *****************************
     // Create Lambda Invoke Handler
@@ -731,6 +736,8 @@ export class HalappAccountStack extends cdk.Stack {
   }
   createGetOrganizationHandler(
     buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
     accountDB: cdk.aws_dynamodb.ITable
   ) {
     const getOrganizationHandler = new NodejsFunction(
@@ -739,7 +746,7 @@ export class HalappAccountStack extends cdk.Stack {
       {
         memorySize: 1024,
         runtime: lambda.Runtime.NODEJS_18_X,
-        functionName: "AccountGetOrganizationHandler",
+        functionName: "Account-GetOrganizationHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
@@ -760,6 +767,15 @@ export class HalappAccountStack extends cdk.Stack {
         },
       }
     );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetOrganizationHandlerIntegration",
+        getOrganizationHandler
+      ),
+      path: "/organization/{organizationId}",
+      authorizer,
+    });
     accountDB.grantReadData(getOrganizationHandler);
     return getOrganizationHandler;
   }
