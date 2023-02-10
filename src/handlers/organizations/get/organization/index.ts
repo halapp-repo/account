@@ -11,7 +11,6 @@ import { OrganizationService } from "../../../../services/organization.service";
 import { OrgToOrgViewModelMapper } from "../../../../mappers/org-to-org-viewmodel.mapper";
 import { Organization } from "../../../../models/organization";
 import httpResponseSerializer from "@middy/http-response-serializer";
-import cors from "@middy/http-cors";
 import httpErrorHandler from "@middy/http-error-handler";
 import createHttpError = require("http-errors");
 
