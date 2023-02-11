@@ -111,11 +111,19 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
-
-    // *****************************
-    // Create Lambda Invoke Handler
-    // *****************************
-    this.createOrganizationHasUserHandler(buildConfig, accountDB);
+    this.createGetOrganizationUsersHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
+    this.createPostOrganizationUser(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB,
+      organizationCreatedTopic
+    );
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -700,40 +708,6 @@ export class HalappAccountStack extends cdk.Stack {
     );
     return postOrganizationUpdateDeliveryAddressesHandler;
   }
-  createOrganizationHasUserHandler(
-    buildConfig: BuildConfig,
-    accountDB: cdk.aws_dynamodb.ITable
-  ) {
-    const organizationHasUser = new NodejsFunction(
-      this,
-      "OrganizationsUserExists",
-      {
-        memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_18_X,
-        functionName: "OrganizationsUserExists",
-        handler: "handler",
-        timeout: cdk.Duration.seconds(10),
-        entry: path.join(
-          __dirname,
-          `/../src/handlers/organizations/user/exists.ts`
-        ),
-        bundling: {
-          target: "es2020",
-          keepNames: true,
-          logLevel: LogLevel.INFO,
-          sourceMap: true,
-          minify: true,
-        },
-        environment: {
-          NODE_OPTIONS: "--enable-source-maps",
-          Region: buildConfig.Region,
-          AccountDB: buildConfig.AccountDBName,
-        },
-      }
-    );
-    accountDB.grantReadData(organizationHasUser);
-    return organizationHasUser;
-  }
   createGetOrganizationHandler(
     buildConfig: BuildConfig,
     accountApi: apiGateway.HttpApi,
@@ -751,7 +725,7 @@ export class HalappAccountStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
           __dirname,
-          `/../src/handlers/organizations/get/organization/index.ts`
+          `/../src/handlers/organizations/get/id/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -778,5 +752,98 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadData(getOrganizationHandler);
     return getOrganizationHandler;
+  }
+  createGetOrganizationUsersHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const getOrganizationHandler = new NodejsFunction(
+      this,
+      "AccountGetOrganizationUsersHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-GetOrganizationUsersHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/get/id/users/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetOrganizationUsersHandlerIntegration",
+        getOrganizationHandler
+      ),
+      path: "/organization/{organizationId}/users",
+      authorizer,
+    });
+    accountDB.grantReadData(getOrganizationHandler);
+    return getOrganizationHandler;
+  }
+  createPostOrganizationUser(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable,
+    organizationCreatedTopic: cdk.aws_sns.Topic
+  ) {
+    const postOrganizationUserHandler = new NodejsFunction(
+      this,
+      "AccountPostOrganizationUserHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-PostOrganizationUserHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/post/id/users/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+          SNSOrganizationCreatedTopicArn: organizationCreatedTopic.topicArn,
+        },
+      }
+    );
+    organizationCreatedTopic.grantPublish(postOrganizationUserHandler);
+    accountApi.addRoutes({
+      methods: [HttpMethod.POST],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PostOrganizationUsersHandlerIntegration",
+        postOrganizationUserHandler
+      ),
+      path: "/organization/{organizationId}/users",
+      authorizer,
+    });
+    accountDB.grantReadData(postOrganizationUserHandler);
+    return postOrganizationUserHandler;
   }
 }

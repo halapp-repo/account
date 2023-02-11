@@ -10,6 +10,7 @@ import { SESStore } from "../repositories/ses-store";
 import { SNSStore } from "../repositories/sns-store";
 import UserRepository from "../repositories/user.repository";
 import { OrganizationService } from "../services/organization.service";
+import { UserService } from "../services/user.service";
 
 container.registerSingleton<SESStore>("SESStore", SESStore);
 container.registerSingleton<S3Store>("S3Store", S3Store);
@@ -35,6 +36,9 @@ container.register("UserToUserViewModelMapper", {
 });
 container.register("OrganizationService", {
   useClass: OrganizationService,
+});
+container.register("UserService", {
+  useClass: UserService,
 });
 
 export const diContainer = container;
