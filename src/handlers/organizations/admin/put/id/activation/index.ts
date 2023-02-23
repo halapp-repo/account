@@ -6,20 +6,16 @@ import createHttpError = require("http-errors");
 import httpErrorHandler from "@middy/http-error-handler";
 import httpResponseSerializer from "@middy/http-response-serializer";
 import httpJsonBodyParser from "@middy/http-json-body-parser";
-import { diContainer } from "../../core/di-registry";
-import * as yup from "yup";
-import schemaValidatorMiddleware from "../../middlewares/schema-validator.middleware";
+import { diContainer } from "../../../../../../core/di-registry";
+import schemaValidatorMiddleware from "../../../../../../middlewares/schema-validator.middleware";
 import {
   Context,
   APIGatewayProxyResult,
   APIGatewayProxyEventV2WithJWTAuthorizer,
 } from "aws-lambda";
-import OrganizationRepository from "../../repositories/organization.repository";
-import adminValidatorMiddleware from "../../middlewares/admin-validator.middleware";
-
-interface OrganizationActivationDTO {
-  IsActive: boolean;
-}
+import OrganizationRepository from "../../../../../../repositories/organization.repository";
+import adminValidatorMiddleware from "../../../../../../middlewares/admin-validator.middleware";
+import { OrganizationActivationDTO, inputSchema } from "./input.schema";
 
 interface Event<TBody>
   extends Omit<APIGatewayProxyEventV2WithJWTAuthorizer, "body"> {
@@ -36,7 +32,7 @@ const lambdaHandler = async function (
   // Print event
   console.log(JSON.stringify(event));
   // Create Organization
-  const { IsActive } = event.body;
+  const { Activation, Balance } = event.body;
 
   const existingOrganization = await orgRepo.getOrg(organizationId);
   if (!existingOrganization) {
@@ -46,11 +42,11 @@ const lambdaHandler = async function (
       })
     );
   }
-  existingOrganization.toggleActivationStatus(IsActive);
+  existingOrganization.updateActivationAndBalance(Activation, Balance);
   await orgRepo.saveOrg(existingOrganization);
 
   return {
-    statusCode: 204,
+    statusCode: 200,
     body: "OK",
     headers: {
       "Content-Type": "application/json",
@@ -64,12 +60,6 @@ function getOrganizationId(organizationId: string | undefined): string {
   }
   return organizationId;
 }
-
-const inputSchema = {
-  body: yup.object({
-    IsActive: yup.boolean().required(),
-  }),
-};
 
 const handler = middy(lambdaHandler)
   .use(httpJsonBodyParser())

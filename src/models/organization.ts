@@ -1,15 +1,16 @@
-import { AccountEventType } from "./account-event-type.enum";
+import moment = require("moment");
+import { v4 as uuidv4 } from "uuid";
+import { Transform, Type } from "class-transformer";
+import { AccountEventType } from "@halapp/common";
 import EventSourceAggregate from "./event-source-aggregate";
 import { OrganizationEvent } from "./events";
 import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
-import { v4 as uuidv4 } from "uuid";
 import { trMoment } from "../utils/timezone";
-import { Transform, Type } from "class-transformer";
 import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
-import moment = require("moment");
 import { OrganizationActivationToggledV1Event } from "./events/organization-activation-toggled-v1.event";
 import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Event } from "./events/organization-update-delivery-addresses-v1.event";
+import { OrganizationActivationToggledV2Event } from "./events/organization-activation-toggled-v2.event";
 
 class Address {
   Active?: boolean;
@@ -24,6 +25,9 @@ class Organization extends EventSourceAggregate {
   VKN: string;
   ID: string;
   Name: string;
+
+  Balance: number = 0;
+  UsedBalance: number = 0;
 
   @Type(() => Address)
   CompanyAddress: Address = new Address();
@@ -57,6 +61,11 @@ class Organization extends EventSourceAggregate {
       event.EventType === AccountEventType.OrganizationActivationToggledV1
     ) {
       this.whenOrganizationActivationToggledV1(event);
+      return;
+    } else if (
+      event.EventType === AccountEventType.OrganizationActivationToggledV2
+    ) {
+      this.whenOrganizationActivationToggledV2(event);
       return;
     } else if (event.EventType === AccountEventType.OrganizationUpdatedV1) {
       this.whenOrganizationUpdatedV1(event);
@@ -113,6 +122,13 @@ class Organization extends EventSourceAggregate {
   ) {
     const { Activate } = event.Payload;
     this.Active = Activate;
+  }
+  whenOrganizationActivationToggledV2(
+    event: OrganizationActivationToggledV2Event
+  ) {
+    const { Activate, Balance } = event.Payload;
+    this.Active = Activate;
+    this.Balance = Balance;
   }
   whenOrganizationUpdatedV1(event: OrganizationUpdatedV1Event) {
     const {
@@ -203,16 +219,17 @@ class Organization extends EventSourceAggregate {
     };
     this.causes(event);
   }
-  toggleActivationStatus(isActive: boolean): void {
-    if (this.Active === isActive) {
+  updateActivationAndBalance(isActive: boolean, balance: number): void {
+    if (this.Active === isActive && this.Balance === balance) {
       return;
     }
-    const event = <OrganizationActivationToggledV1Event>{
+    const event = <OrganizationActivationToggledV2Event>{
       OrgID: this.ID,
-      EventType: AccountEventType.OrganizationActivationToggledV1,
+      EventType: AccountEventType.OrganizationActivationToggledV2,
       TS: trMoment(),
       Payload: {
         Activate: isActive,
+        Balance: balance,
       },
     };
     this.causes(event);

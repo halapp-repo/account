@@ -543,7 +543,7 @@ export class HalappAccountStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
           __dirname,
-          `/../src/handlers/account-admin-put-organization-activation-status-handler/index.ts`
+          `/../src/handlers/organizations/admin/put/id/activation/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -565,7 +565,7 @@ export class HalappAccountStack extends cdk.Stack {
         "adminPutOrganizationActivationChangedHandlerIntegration",
         adminPutOrganizationActivationChangedHandler
       ),
-      path: "/admin/organization/{id}",
+      path: "/admin/organizations/{id}/activation",
       authorizer,
     });
     accountDB.grantReadWriteData(adminPutOrganizationActivationChangedHandler);
@@ -655,7 +655,7 @@ export class HalappAccountStack extends cdk.Stack {
         "putOrganizationsUpdateHandlerIntegration",
         putOrganizationUpdateHandler
       ),
-      path: "/organization/{organizationId}",
+      path: "/organizations/{organizationId}",
       authorizer,
     });
     accountDB.grantReadWriteData(putOrganizationUpdateHandler);
@@ -700,7 +700,7 @@ export class HalappAccountStack extends cdk.Stack {
         "PostOrganizationsUpdateDeliveryAddressesHandlerIntegration",
         postOrganizationUpdateDeliveryAddressesHandler
       ),
-      path: "/organization/{organizationId}/deliveryaddresses",
+      path: "/organizations/{organizationId}/deliveryaddresses",
       authorizer,
     });
     accountDB.grantReadWriteData(
@@ -747,7 +747,7 @@ export class HalappAccountStack extends cdk.Stack {
         "GetOrganizationHandlerIntegration",
         getOrganizationHandler
       ),
-      path: "/organization/{organizationId}",
+      path: "/organizations/{organizationId}",
       authorizer,
     });
     accountDB.grantReadData(getOrganizationHandler);
@@ -792,7 +792,7 @@ export class HalappAccountStack extends cdk.Stack {
         "GetOrganizationUsersHandlerIntegration",
         getOrganizationHandler
       ),
-      path: "/organization/{organizationId}/users",
+      path: "/organizations/{organizationId}/users",
       authorizer,
     });
     accountDB.grantReadData(getOrganizationHandler);
@@ -840,7 +840,7 @@ export class HalappAccountStack extends cdk.Stack {
         "PostOrganizationUsersHandlerIntegration",
         postOrganizationUserHandler
       ),
-      path: "/organization/{organizationId}/users",
+      path: "/organizations/{organizationId}/users",
       authorizer,
     });
     accountDB.grantReadData(postOrganizationUserHandler);

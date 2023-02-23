@@ -14,6 +14,7 @@ import httpErrorHandler from "@middy/http-error-handler";
 import createHttpError = require("http-errors");
 import { UserService } from "../../../../../services/user.service";
 import { UserToUserViewModelMapper } from "../../../../../mappers/user-to-user-viewmode.mapper";
+import { User } from "../../../../../models/user";
 
 const lambdaHandler = async function (
   event: any | APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -47,8 +48,11 @@ const lambdaHandler = async function (
       isAdmin
     );
   }
-  const users = await userService.fetchByIds(organization.JoinedUsers);
-
+  const { JoinedUsers } = organization;
+  let users: User[] = [];
+  if (JoinedUsers && Array.isArray(JoinedUsers) && JoinedUsers.length > 0) {
+    users = await userService.fetchByIds(organization.JoinedUsers);
+  }
   return {
     statusCode: 200,
     body: JSON.stringify(userVMMapper.toListDTO(users)),

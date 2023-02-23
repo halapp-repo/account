@@ -1,5 +1,5 @@
 import { trMoment } from "../utils/timezone";
-import { AccountEventType } from "./account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import EventSourceAggregate from "./event-source-aggregate";
 import { UserEvent } from "./events";
 import { UserCreatedV1Event } from "./events/user-created-v1.event";

@@ -1,5 +1,5 @@
 import { trMoment } from "../utils/timezone";
-import { AccountEventType } from "../models/account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import { OrganizationRepositoryDTO } from "../models/dto/account.repository.dto";
 import { OrganizationEvent } from "../models/events";
 import { OrganizationCreatedV1Payload } from "../models/events/organization-created-v1.event";
@@ -9,6 +9,7 @@ import { UserJoinedV1Payload } from "../models/events/organization-userjoined-v1
 import { OrganizationActivationToggledV1Payload } from "../models/events/organization-activation-toggled-v1.event";
 import { OrganizationUpdatedV1Payload } from "../models/events/organization-updated-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Payload } from "../models/events/organization-update-delivery-addresses-v1.event";
+import { OrganizationActivationToggledV2Payload } from "../models/events/organization-activation-toggled-v2.event";
 
 export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
   OrganizationEvent,
@@ -54,6 +55,13 @@ export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
         TS: ts,
         EventType: eventType,
         Payload: payload as OrganizationActivationToggledV1Payload,
+      };
+    } else if (eventType === AccountEventType.OrganizationActivationToggledV2) {
+      return {
+        OrgID: ID,
+        TS: ts,
+        EventType: eventType,
+        Payload: payload as OrganizationActivationToggledV2Payload,
       };
     } else if (eventType === AccountEventType.OrganizationUpdatedV1) {
       return {

@@ -14,7 +14,7 @@ import httpErrorHandler from "@middy/http-error-handler";
 import createHttpError = require("http-errors");
 import { CreateOrganizationUserDTO, inputSchema } from "./input.schema";
 import { SNSService } from "../../../../../services/sns.service";
-import { AccountEventType } from "../../../../../models/account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import schemaValidatorMiddleware from "../../../../../middlewares/schema-validator.middleware";
 import httpJsonBodyParser from "@middy/http-json-body-parser";
 

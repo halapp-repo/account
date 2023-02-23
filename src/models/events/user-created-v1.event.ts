@@ -1,4 +1,4 @@
-import { AccountEventType } from "../account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 
 interface UserCreatedV1Payload {
   UserID: string;

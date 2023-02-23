@@ -1,4 +1,4 @@
-import { AccountEventType } from "../account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import { Address } from "../organization";
 
 interface OrganizationUpdateDeliveryAddressesV1Payload {
