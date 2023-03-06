@@ -26,8 +26,8 @@ class Organization extends EventSourceAggregate {
   ID: string;
   Name: string;
 
+  CreditLimit: number = 0;
   Balance: number = 0;
-  UsedBalance: number = 0;
 
   @Type(() => Address)
   CompanyAddress: Address = new Address();
@@ -126,9 +126,9 @@ class Organization extends EventSourceAggregate {
   whenOrganizationActivationToggledV2(
     event: OrganizationActivationToggledV2Event
   ) {
-    const { Activate, Balance } = event.Payload;
+    const { Activate, CreditLimit } = event.Payload;
     this.Active = Activate;
-    this.Balance = Balance;
+    this.CreditLimit = CreditLimit;
   }
   whenOrganizationUpdatedV1(event: OrganizationUpdatedV1Event) {
     const {
@@ -219,8 +219,8 @@ class Organization extends EventSourceAggregate {
     };
     this.causes(event);
   }
-  updateActivationAndBalance(isActive: boolean, balance: number): void {
-    if (this.Active === isActive && this.Balance === balance) {
+  updateActivationAndBalance(isActive: boolean, creditLimit: number): void {
+    if (this.Active === isActive && this.CreditLimit === creditLimit) {
       return;
     }
     const event = <OrganizationActivationToggledV2Event>{
@@ -229,7 +229,7 @@ class Organization extends EventSourceAggregate {
       TS: trMoment(),
       Payload: {
         Activate: isActive,
-        Balance: balance,
+        CreditLimit: creditLimit,
       },
     };
     this.causes(event);

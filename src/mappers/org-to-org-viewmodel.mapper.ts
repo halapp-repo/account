@@ -15,7 +15,7 @@ export class OrgToOrgViewModelMapper extends IMapper<
       Name: arg.Name,
       PhoneNumber: arg.PhoneNumber,
       Balance: arg.Balance,
-      UsedBalance: arg.UsedBalance,
+      CreditLimit: arg.CreditLimit,
       CompanyAddress: {
         AddressLine: arg.CompanyAddress.AddressLine,
         City: arg.CompanyAddress.City,

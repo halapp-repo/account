@@ -2,7 +2,7 @@ import { AccountEventType } from "@halapp/common";
 
 interface OrganizationActivationToggledV2Payload {
   Activate: boolean;
-  Balance: number;
+  CreditLimit: number;
 }
 
 type OrganizationActivationToggledV2Event = {

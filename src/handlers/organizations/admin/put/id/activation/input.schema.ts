@@ -3,7 +3,7 @@ import { object, string, number, InferType, array, boolean } from "yup";
 const inputSchema = {
   body: object({
     Activation: boolean().required(),
-    Balance: number().required(),
+    CreditLimit: number().required(),
   }).required(),
 };
 

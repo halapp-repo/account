@@ -32,7 +32,7 @@ const lambdaHandler = async function (
   // Print event
   console.log(JSON.stringify(event));
   // Create Organization
-  const { Activation, Balance } = event.body;
+  const { Activation, CreditLimit } = event.body;
 
   const existingOrganization = await orgRepo.getOrg(organizationId);
   if (!existingOrganization) {
@@ -42,7 +42,7 @@ const lambdaHandler = async function (
       })
     );
   }
-  existingOrganization.updateActivationAndBalance(Activation, Balance);
+  existingOrganization.updateActivationAndBalance(Activation, CreditLimit);
   await orgRepo.saveOrg(existingOrganization);
 
   return {
