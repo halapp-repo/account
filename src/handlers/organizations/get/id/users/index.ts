@@ -13,7 +13,7 @@ import httpResponseSerializer from "@middy/http-response-serializer";
 import httpErrorHandler from "@middy/http-error-handler";
 import createHttpError = require("http-errors");
 import { UserService } from "../../../../../services/user.service";
-import { UserToUserViewModelMapper } from "../../../../../mappers/user-to-user-viewmode.mapper";
+import { UserToUserViewModelMapper } from "../../../../../mappers/user-to-user-viewmodel.mapper";
 import { User } from "../../../../../models/user";
 
 const lambdaHandler = async function (

@@ -1,7 +1,7 @@
 import moment = require("moment");
 import { v4 as uuidv4 } from "uuid";
 import { Transform, Type } from "class-transformer";
-import { AccountEventType } from "@halapp/common";
+import { AccountEventType, PaymentMethodType } from "@halapp/common";
 import EventSourceAggregate from "./event-source-aggregate";
 import { OrganizationEvent } from "./events";
 import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
@@ -11,6 +11,7 @@ import { OrganizationActivationToggledV1Event } from "./events/organization-acti
 import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Event } from "./events/organization-update-delivery-addresses-v1.event";
 import { OrganizationActivationToggledV2Event } from "./events/organization-activation-toggled-v2.event";
+import { OrganizationWithdrewV1Event } from "./events/organization-withdrew-v1.event";
 
 class Address {
   Active?: boolean;
@@ -74,6 +75,9 @@ class Organization extends EventSourceAggregate {
       event.EventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1
     ) {
       this.whenOrganizationUpdateDeliveryAddressesV1(event);
+      return;
+    } else if (event.EventType === AccountEventType.OrganizationWithdrewV1) {
+      this.whenOrganizationWithdrewV1(event);
       return;
     }
   }
@@ -168,6 +172,9 @@ class Organization extends EventSourceAggregate {
     event: OrganizationUpdateDeliveryAddressesV1Event
   ) {
     this.DeliveryAddresses = [...event.Payload.DeliveryAddresses];
+  }
+  whenOrganizationWithdrewV1(event: OrganizationWithdrewV1Event) {
+    this.Balance = this.Balance - event.Payload.WithdrawAmount;
   }
   static create({
     vkn,
@@ -324,6 +331,26 @@ class Organization extends EventSourceAggregate {
   }
   hasUser(userId: string): boolean {
     return this.JoinedUsers.includes(userId);
+  }
+  withdraw(
+    orderId: string,
+    paymentMethodType: PaymentMethodType,
+    amount: number
+  ) {
+    const withdrawAmount =
+      paymentMethodType === PaymentMethodType.card ? 0 : amount;
+    const event = <OrganizationWithdrewV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationWithdrewV1,
+      TS: trMoment(),
+      Payload: {
+        OrderId: orderId,
+        PaymentMethodType: paymentMethodType,
+        WithdrawAmount: withdrawAmount,
+        CurrentBalance: this.Balance - withdrawAmount,
+      },
+    };
+    this.causes(event);
   }
 }
 

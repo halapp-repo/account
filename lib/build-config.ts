@@ -16,6 +16,7 @@ export interface BuildConfig {
   readonly AUTH_SNSUserCreatedTopic: string;
   readonly AUTH_SNSUserJoinedOrganizationTopic: string;
   readonly SNSOrganizationCreatedTopic: string;
+  readonly ORDER_SNSOrderCreatedTopic: string;
   // SQS
   readonly AUTH_SQSOrganizationCreatedQueue: string;
   readonly SQSUserCreatedQueue: string;

@@ -40,44 +40,21 @@ export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
         EventType: eventType,
         OrgID: ID,
         TS: ts,
-        Payload: payload as OrganizationCreatedV1Payload,
-      };
-    } else if (eventType === AccountEventType.UserJoinedV1) {
-      return {
-        OrgID: ID,
-        TS: ts,
-        EventType: eventType,
-        Payload: payload as UserJoinedV1Payload,
-      };
-    } else if (eventType === AccountEventType.OrganizationActivationToggledV1) {
-      return {
-        OrgID: ID,
-        TS: ts,
-        EventType: eventType,
-        Payload: payload as OrganizationActivationToggledV1Payload,
-      };
-    } else if (eventType === AccountEventType.OrganizationActivationToggledV2) {
-      return {
-        OrgID: ID,
-        TS: ts,
-        EventType: eventType,
-        Payload: payload as OrganizationActivationToggledV2Payload,
-      };
-    } else if (eventType === AccountEventType.OrganizationUpdatedV1) {
-      return {
-        OrgID: ID,
-        TS: ts,
-        EventType: eventType,
-        Payload: payload as OrganizationUpdatedV1Payload,
+        Payload: payload,
       };
     } else if (
-      eventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1
+      eventType === AccountEventType.UserJoinedV1 ||
+      eventType === AccountEventType.OrganizationActivationToggledV1 ||
+      eventType === AccountEventType.OrganizationActivationToggledV2 ||
+      eventType === AccountEventType.OrganizationUpdatedV1 ||
+      eventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1 ||
+      eventType === AccountEventType.OrganizationWithdrewV1
     ) {
       return {
         OrgID: ID,
         TS: ts,
         EventType: eventType,
-        Payload: payload as OrganizationUpdateDeliveryAddressesV1Payload,
+        Payload: payload,
       };
     } else {
       throw createHttpError.InternalServerError("Unsupported event type");

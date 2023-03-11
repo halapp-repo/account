@@ -1,8 +1,9 @@
 import { container } from "tsyringe";
+import { OrderToOrderViewModelMapper } from "../mappers/order-to-order-viewmodel.mapper";
 import { OrgEventToOrgRepositoryDTOMapper } from "../mappers/org-event-to-org-repository-dto.mapper";
 import { OrgToOrgViewModelMapper } from "../mappers/org-to-org-viewmodel.mapper";
 import { UserEventToUserRepositoryDTOMapper } from "../mappers/user-event-to-user-respository-dto.mapper";
-import { UserToUserViewModelMapper } from "../mappers/user-to-user-viewmode.mapper";
+import { UserToUserViewModelMapper } from "../mappers/user-to-user-viewmodel.mapper";
 import { DynamoStore } from "../repositories/dynamo-store";
 import OrganizationRepository from "../repositories/organization.repository";
 import { S3Store } from "../repositories/s3-store";
@@ -39,6 +40,9 @@ container.register("OrganizationService", {
 });
 container.register("UserService", {
   useClass: UserService,
+});
+container.register("OrderToOrderViewModelMapper", {
+  useClass: OrderToOrderViewModelMapper,
 });
 
 export const diContainer = container;
