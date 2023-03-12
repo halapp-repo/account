@@ -1,17 +1,17 @@
 import { trMoment } from "../utils/timezone";
-import { AccountEventType } from "@halapp/common";
-import EventSourceAggregate from "./event-source-aggregate";
+import { AccountEventType, EventSourceAggregate } from "@halapp/common";
 import { UserEvent } from "./events";
 import { UserCreatedV1Event } from "./events/user-created-v1.event";
 import { UserJoinedOrganizationV1Event } from "./events/user-joined-organization-v1.event";
 
-class User extends EventSourceAggregate {
+class User extends EventSourceAggregate<UserEvent> {
   ID: string;
   Email: string;
   Active: boolean;
   JoinedOrganizations: string[];
 
   apply(event: UserEvent): void {
+    this.RetroEvents.push(event);
     if (event.EventType === AccountEventType.UserCreatedV1) {
       this.whenUserCreatedV1(event);
     } else if (event.EventType === AccountEventType.UserJoinedV1) {

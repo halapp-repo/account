@@ -24,6 +24,8 @@ const lambdaHandler = async function (
   const orgVMMapper = diContainer.resolve(OrgToOrgViewModelMapper);
   let organizationId: string;
   let organization: Organization;
+  const includeEvents: boolean =
+    event?.queryStringParameters?.includeEvents || false;
   // There is two ways to invoke this function.
   organizationId = event["OrganizationId"] as string;
   if (organizationId) {
@@ -48,7 +50,7 @@ const lambdaHandler = async function (
 
   return {
     statusCode: 200,
-    body: JSON.stringify(orgVMMapper.toDTO(organization)),
+    body: JSON.stringify(orgVMMapper.toDTO(organization, includeEvents)),
     headers: {
       "Content-Type": "application/json",
     },

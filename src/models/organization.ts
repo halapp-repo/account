@@ -1,9 +1,12 @@
 import moment = require("moment");
 import { v4 as uuidv4 } from "uuid";
 import { Transform, Type } from "class-transformer";
-import { AccountEventType, PaymentMethodType } from "@halapp/common";
-import EventSourceAggregate from "./event-source-aggregate";
-import { OrganizationEvent } from "./events";
+import {
+  AccountEventType,
+  EventSourceAggregate,
+  PaymentMethodType,
+} from "@halapp/common";
+import { OrganizationEvent, UserEvent } from "./events";
 import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
 import { trMoment } from "../utils/timezone";
 import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
@@ -22,7 +25,7 @@ class Address {
   Country: string;
 }
 
-class Organization extends EventSourceAggregate {
+class Organization extends EventSourceAggregate<OrganizationEvent> {
   VKN: string;
   ID: string;
   Name: string;
@@ -52,6 +55,7 @@ class Organization extends EventSourceAggregate {
   CreatedDate: moment.Moment;
 
   apply(event: OrganizationEvent): void {
+    this.RetroEvents.push(event);
     if (event.EventType === AccountEventType.OrganizationCreatedV1) {
       this.whenOrganizationCreatedV1(event);
       return;
