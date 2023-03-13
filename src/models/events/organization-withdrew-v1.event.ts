@@ -1,18 +1,21 @@
 import { AccountEventType, PaymentMethodType } from "@halapp/common";
 
-interface OrganizationWithdrewV1Payload {
+interface OrganizationWithdrewFromBalanceV1Payload {
   OrderId: string;
   PaymentMethodType: PaymentMethodType;
   WithdrawAmount: number;
   CurrentBalance: number;
 }
 
-type OrganizationWithdrewV1Event = {
+type OrganizationWithdrewFromBalanceV1Event = {
   VKN?: string;
   OrgID: string;
   TS: moment.Moment;
-  EventType: AccountEventType.OrganizationWithdrewV1;
-  Payload: OrganizationWithdrewV1Payload;
+  EventType: AccountEventType.OrganizationWithdrewFromBalanceV1;
+  Payload: OrganizationWithdrewFromBalanceV1Payload;
 };
 
-export type { OrganizationWithdrewV1Event, OrganizationWithdrewV1Payload };
+export type {
+  OrganizationWithdrewFromBalanceV1Event,
+  OrganizationWithdrewFromBalanceV1Payload,
+};

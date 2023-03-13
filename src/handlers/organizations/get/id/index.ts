@@ -13,9 +13,21 @@ import { Organization } from "../../../../models/organization";
 import httpResponseSerializer from "@middy/http-response-serializer";
 import httpErrorHandler from "@middy/http-error-handler";
 import createHttpError = require("http-errors");
+import { ByEvent, inputSchema } from "./input.schema";
+import * as qs from "qs";
+import schemaValidatorMiddleware from "../../../../middlewares/schema-validator.middleware";
+import { AccountEventType } from "@halapp/common";
+
+interface Event<TBody>
+  extends Omit<
+    APIGatewayProxyEventV2WithJWTAuthorizer,
+    "queryStringParameters"
+  > {
+  queryStringParameters: TBody;
+}
 
 const lambdaHandler = async function (
-  event: any | APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: any | Event<ByEvent>,
   context: Context
 ): Promise<APIGatewayProxyResult> {
   // Print event
@@ -24,8 +36,7 @@ const lambdaHandler = async function (
   const orgVMMapper = diContainer.resolve(OrgToOrgViewModelMapper);
   let organizationId: string;
   let organization: Organization;
-  const includeEvents: boolean =
-    event?.queryStringParameters?.includeEvents || false;
+  const includeEvents = event?.queryStringParameters?.includeEvents || false;
   // There is two ways to invoke this function.
   organizationId = event["OrganizationId"] as string;
   if (organizationId) {
@@ -72,6 +83,7 @@ const handler = middy(lambdaHandler)
         message: "Bilinmeyen hata olustu",
       }),
     })
-  );
+  )
+  .use(schemaValidatorMiddleware(inputSchema));
 
 export { handler, lambdaHandler };

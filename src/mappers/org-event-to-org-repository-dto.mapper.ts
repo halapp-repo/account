@@ -48,7 +48,9 @@ export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
       eventType === AccountEventType.OrganizationActivationToggledV2 ||
       eventType === AccountEventType.OrganizationUpdatedV1 ||
       eventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1 ||
-      eventType === AccountEventType.OrganizationWithdrewV1
+      eventType === AccountEventType.OrganizationWithdrewFromBalanceV1 ||
+      eventType === AccountEventType.OrganizationDepositedToBalanceV1 ||
+      eventType === AccountEventType.OrganizationPaidWithCardV1
     ) {
       return {
         OrgID: ID,
