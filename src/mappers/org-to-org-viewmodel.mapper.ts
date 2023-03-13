@@ -1,12 +1,17 @@
 import { Organization } from "../models/organization";
-import { AddressVM, OrganizationVM } from "@halapp/common";
+import {
+  AccountEventType,
+  AccountEventVM,
+  AddressVM,
+  OrganizationVM,
+} from "@halapp/common";
 import { IMapper } from "./base.mapper";
 
 export class OrgToOrgViewModelMapper extends IMapper<
   Organization,
   OrganizationVM
 > {
-  toDTO(arg: Organization): OrganizationVM {
+  toDTO(arg: Organization, includeEvents?: boolean): OrganizationVM {
     return {
       VKN: arg.VKN,
       ID: arg.ID,
@@ -14,6 +19,8 @@ export class OrgToOrgViewModelMapper extends IMapper<
       Email: arg.Email,
       Name: arg.Name,
       PhoneNumber: arg.PhoneNumber,
+      Balance: arg.Balance,
+      CreditLimit: arg.CreditLimit,
       CompanyAddress: {
         AddressLine: arg.CompanyAddress.AddressLine,
         City: arg.CompanyAddress.City,
@@ -41,6 +48,25 @@ export class OrgToOrgViewModelMapper extends IMapper<
             Active: a.Active,
           } as AddressVM)
       ),
+      ...(includeEvents
+        ? {
+            Events: arg.RetroEvents.filter(
+              (e) =>
+                e.EventType === AccountEventType.OrganizationCreatedV1 ||
+                e.EventType ===
+                  AccountEventType.OrganizationActivationToggledV1 ||
+                e.EventType ===
+                  AccountEventType.OrganizationActivationToggledV2 ||
+                e.EventType === AccountEventType.OrganizationWithdrewV1
+            ).map((e) => {
+              return {
+                EventType: e.EventType,
+                Payload: JSON.stringify(e.Payload),
+                TS: e.TS.format(),
+              } as AccountEventVM;
+            }),
+          }
+        : null),
     } as OrganizationVM;
   }
   toModel(arg: OrganizationVM): Organization {

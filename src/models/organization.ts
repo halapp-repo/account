@@ -1,15 +1,20 @@
-import { AccountEventType } from "./account-event-type.enum";
-import EventSourceAggregate from "./event-source-aggregate";
-import { OrganizationEvent } from "./events";
-import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
-import { v4 as uuidv4 } from "uuid";
-import { trMoment } from "../utils/timezone";
-import { Transform, Type } from "class-transformer";
-import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
 import moment = require("moment");
+import { v4 as uuidv4 } from "uuid";
+import { Transform, Type } from "class-transformer";
+import {
+  AccountEventType,
+  EventSourceAggregate,
+  PaymentMethodType,
+} from "@halapp/common";
+import { OrganizationEvent, UserEvent } from "./events";
+import { OrganizationCreatedV1Event } from "./events/organization-created-v1.event";
+import { trMoment } from "../utils/timezone";
+import { UserJoinedV1Event } from "./events/organization-userjoined-v1.event";
 import { OrganizationActivationToggledV1Event } from "./events/organization-activation-toggled-v1.event";
 import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Event } from "./events/organization-update-delivery-addresses-v1.event";
+import { OrganizationActivationToggledV2Event } from "./events/organization-activation-toggled-v2.event";
+import { OrganizationWithdrewV1Event } from "./events/organization-withdrew-v1.event";
 
 class Address {
   Active?: boolean;
@@ -20,10 +25,13 @@ class Address {
   Country: string;
 }
 
-class Organization extends EventSourceAggregate {
+class Organization extends EventSourceAggregate<OrganizationEvent> {
   VKN: string;
   ID: string;
   Name: string;
+
+  CreditLimit: number = 0;
+  Balance: number = 0;
 
   @Type(() => Address)
   CompanyAddress: Address = new Address();
@@ -47,6 +55,7 @@ class Organization extends EventSourceAggregate {
   CreatedDate: moment.Moment;
 
   apply(event: OrganizationEvent): void {
+    this.RetroEvents.push(event);
     if (event.EventType === AccountEventType.OrganizationCreatedV1) {
       this.whenOrganizationCreatedV1(event);
       return;
@@ -58,6 +67,11 @@ class Organization extends EventSourceAggregate {
     ) {
       this.whenOrganizationActivationToggledV1(event);
       return;
+    } else if (
+      event.EventType === AccountEventType.OrganizationActivationToggledV2
+    ) {
+      this.whenOrganizationActivationToggledV2(event);
+      return;
     } else if (event.EventType === AccountEventType.OrganizationUpdatedV1) {
       this.whenOrganizationUpdatedV1(event);
       return;
@@ -65,6 +79,9 @@ class Organization extends EventSourceAggregate {
       event.EventType === AccountEventType.OrganizationUpdateDeliveryAddressesV1
     ) {
       this.whenOrganizationUpdateDeliveryAddressesV1(event);
+      return;
+    } else if (event.EventType === AccountEventType.OrganizationWithdrewV1) {
+      this.whenOrganizationWithdrewV1(event);
       return;
     }
   }
@@ -114,6 +131,13 @@ class Organization extends EventSourceAggregate {
     const { Activate } = event.Payload;
     this.Active = Activate;
   }
+  whenOrganizationActivationToggledV2(
+    event: OrganizationActivationToggledV2Event
+  ) {
+    const { Activate, CreditLimit } = event.Payload;
+    this.Active = Activate;
+    this.CreditLimit = CreditLimit;
+  }
   whenOrganizationUpdatedV1(event: OrganizationUpdatedV1Event) {
     const {
       Name,
@@ -152,6 +176,9 @@ class Organization extends EventSourceAggregate {
     event: OrganizationUpdateDeliveryAddressesV1Event
   ) {
     this.DeliveryAddresses = [...event.Payload.DeliveryAddresses];
+  }
+  whenOrganizationWithdrewV1(event: OrganizationWithdrewV1Event) {
+    this.Balance = this.Balance - event.Payload.WithdrawAmount;
   }
   static create({
     vkn,
@@ -203,16 +230,17 @@ class Organization extends EventSourceAggregate {
     };
     this.causes(event);
   }
-  toggleActivationStatus(isActive: boolean): void {
-    if (this.Active === isActive) {
+  updateActivationAndBalance(isActive: boolean, creditLimit: number): void {
+    if (this.Active === isActive && this.CreditLimit === creditLimit) {
       return;
     }
-    const event = <OrganizationActivationToggledV1Event>{
+    const event = <OrganizationActivationToggledV2Event>{
       OrgID: this.ID,
-      EventType: AccountEventType.OrganizationActivationToggledV1,
+      EventType: AccountEventType.OrganizationActivationToggledV2,
       TS: trMoment(),
       Payload: {
         Activate: isActive,
+        CreditLimit: creditLimit,
       },
     };
     this.causes(event);
@@ -307,6 +335,26 @@ class Organization extends EventSourceAggregate {
   }
   hasUser(userId: string): boolean {
     return this.JoinedUsers.includes(userId);
+  }
+  withdraw(
+    orderId: string,
+    paymentMethodType: PaymentMethodType,
+    amount: number
+  ) {
+    const withdrawAmount =
+      paymentMethodType === PaymentMethodType.card ? 0 : amount;
+    const event = <OrganizationWithdrewV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationWithdrewV1,
+      TS: trMoment(),
+      Payload: {
+        OrderId: orderId,
+        PaymentMethodType: paymentMethodType,
+        WithdrawAmount: withdrawAmount,
+        CurrentBalance: this.Balance - withdrawAmount,
+      },
+    };
+    this.causes(event);
   }
 }
 

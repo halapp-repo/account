@@ -18,7 +18,7 @@ import { SESService } from "../../services/ses.service";
 import OrganizationRepository from "../../repositories/organization.repository";
 import { SNSService } from "../../services/sns.service";
 import { OrganizationDTO } from "../../models/dto/organization.dto";
-import { AccountEventType } from "../../models/account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import createHttpError = require("http-errors");
 
 interface Event<TBody> extends Omit<APIGatewayProxyEventV2, "body"> {

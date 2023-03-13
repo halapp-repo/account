@@ -52,6 +52,10 @@ export class HalappAccountStack extends cdk.Stack {
     // ****************
     const userCreatedSQS = this.createUserCreatedQueue(buildConfig);
     // **************
+    // Create SQS (Order Created)
+    // ****************
+    const orderCreatedSQS = this.createOrderCreatedQueue(buildConfig);
+    // **************
     // Create SQS (User Joined Organization)
     // ****************
     const userJoinedOrganizationSQS =
@@ -75,6 +79,7 @@ export class HalappAccountStack extends cdk.Stack {
       userJoinedOrganizationSQS,
       accountDB
     );
+    this.createOrderCreatedHandler(buildConfig, orderCreatedSQS, accountDB);
     this.createGetOrganizationsHandler(
       buildConfig,
       accountApi,
@@ -111,11 +116,19 @@ export class HalappAccountStack extends cdk.Stack {
       authorizer,
       accountDB
     );
-
-    // *****************************
-    // Create Lambda Invoke Handler
-    // *****************************
-    this.createOrganizationHasUserHandler(buildConfig, accountDB);
+    this.createGetOrganizationUsersHandler(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB
+    );
+    this.createPostOrganizationUser(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB,
+      organizationCreatedTopic
+    );
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -278,6 +291,7 @@ export class HalappAccountStack extends cdk.Stack {
     const userCreatedQueue = new sqs.Queue(this, "Auth-UserCreatedQueue", {
       queueName: buildConfig.SQSUserCreatedQueue,
       visibilityTimeout: cdk.Duration.minutes(2),
+      receiveMessageWaitTime: cdk.Duration.seconds(5),
       retentionPeriod: cdk.Duration.days(1),
       deadLetterQueue: {
         queue: userCreatedDLQ,
@@ -331,6 +345,7 @@ export class HalappAccountStack extends cdk.Stack {
       {
         queueName: buildConfig.SQSUserJoinedOrganizationQueue,
         visibilityTimeout: cdk.Duration.minutes(2),
+        receiveMessageWaitTime: cdk.Duration.seconds(5),
         retentionPeriod: cdk.Duration.days(1),
         deadLetterQueue: {
           queue: userJoinedOrganizationDLQ,
@@ -370,6 +385,50 @@ export class HalappAccountStack extends cdk.Stack {
     );
     return userJoinedOrganizationQueue;
   }
+  createOrderCreatedQueue(buildConfig: BuildConfig): cdk.aws_sqs.Queue {
+    const orderCreatedDLQ = new sqs.Queue(this, "Account-OrderCreatedDLQ", {
+      queueName: "Account-OrderCreatedDLQ",
+      retentionPeriod: cdk.Duration.hours(10),
+    });
+    const orderCreatedQueue = new sqs.Queue(this, "Account-OrderCreatedQueue", {
+      queueName: "Account-OrderCreatedQueue",
+      visibilityTimeout: cdk.Duration.minutes(2),
+      receiveMessageWaitTime: cdk.Duration.seconds(5),
+      retentionPeriod: cdk.Duration.days(1),
+      deadLetterQueue: {
+        queue: orderCreatedDLQ,
+        maxReceiveCount: 4,
+      },
+    });
+    orderCreatedQueue.addToResourcePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        principals: [new ServicePrincipal("sns.amazonaws.com")],
+        actions: ["sqs:SendMessage"],
+        resources: [orderCreatedQueue.queueArn],
+        conditions: {
+          StringEquals: {
+            "aws:SourceAccount": this.account,
+          },
+          ArnLike: {
+            "aws:SourceArn": `arn:aws:sns:*:*:${buildConfig.ORDER_SNSOrderCreatedTopic}`,
+          },
+        },
+      })
+    );
+    const importedOrderCreatedTopic = sns.Topic.fromTopicArn(
+      this,
+      "ImportedOrderCreatedTopic",
+      `arn:aws:sns:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.ORDER_SNSOrderCreatedTopic}`
+    );
+    if (!importedOrderCreatedTopic) {
+      throw new Error("importedOrderCreatedTopic needs to come from Order");
+    }
+    importedOrderCreatedTopic.addSubscription(
+      new subs.SqsSubscription(orderCreatedQueue)
+    );
+    return orderCreatedQueue;
+  }
   userCreatedHandler(
     buildConfig: BuildConfig,
     userCreatedSQS: cdk.aws_sqs.Queue,
@@ -396,6 +455,7 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
+          NODE_OPTIONS: "--enable-source-maps",
           Region: buildConfig.Region,
           AccountDB: buildConfig.AccountDBName,
         },
@@ -435,6 +495,7 @@ export class HalappAccountStack extends cdk.Stack {
           minify: true,
         },
         environment: {
+          NODE_OPTIONS: "--enable-source-maps",
           Region: buildConfig.Region,
           AccountDB: buildConfig.AccountDBName,
         },
@@ -448,6 +509,47 @@ export class HalappAccountStack extends cdk.Stack {
     accountDB.grantReadWriteData(userJoinedOrganizationHandler);
     return userJoinedOrganizationHandler;
   }
+  createOrderCreatedHandler(
+    buildConfig: BuildConfig,
+    orderCreatedSQS: cdk.aws_sqs.Queue,
+    accountDB: cdk.aws_dynamodb.ITable
+  ): cdk.aws_lambda_nodejs.NodejsFunction {
+    const orderCreatedHandler = new NodejsFunction(
+      this,
+      "Account-SQSOrderCreatedHandler",
+      {
+        memorySize: 1024,
+        timeout: cdk.Duration.minutes(1),
+        functionName: "Account-SQSOrderCreatedHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        handler: "handler",
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/post/id/order/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    orderCreatedHandler.addEventSource(
+      new SqsEventSource(orderCreatedSQS, {
+        batchSize: 1,
+      })
+    );
+    accountDB.grantReadWriteData(orderCreatedHandler);
+    return orderCreatedHandler;
+  }
+
   importAuthorizer(
     buildConfig: BuildConfig
   ): apiGatewayAuthorizers.HttpUserPoolAuthorizer {
@@ -535,7 +637,7 @@ export class HalappAccountStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
           __dirname,
-          `/../src/handlers/account-admin-put-organization-activation-status-handler/index.ts`
+          `/../src/handlers/organizations/admin/put/id/activation/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -557,7 +659,7 @@ export class HalappAccountStack extends cdk.Stack {
         "adminPutOrganizationActivationChangedHandlerIntegration",
         adminPutOrganizationActivationChangedHandler
       ),
-      path: "/admin/organization/{id}",
+      path: "/admin/organizations/{id}/activation",
       authorizer,
     });
     accountDB.grantReadWriteData(adminPutOrganizationActivationChangedHandler);
@@ -647,7 +749,7 @@ export class HalappAccountStack extends cdk.Stack {
         "putOrganizationsUpdateHandlerIntegration",
         putOrganizationUpdateHandler
       ),
-      path: "/organization/{organizationId}",
+      path: "/organizations/{organizationId}",
       authorizer,
     });
     accountDB.grantReadWriteData(putOrganizationUpdateHandler);
@@ -692,47 +794,13 @@ export class HalappAccountStack extends cdk.Stack {
         "PostOrganizationsUpdateDeliveryAddressesHandlerIntegration",
         postOrganizationUpdateDeliveryAddressesHandler
       ),
-      path: "/organization/{organizationId}/deliveryaddresses",
+      path: "/organizations/{organizationId}/deliveryaddresses",
       authorizer,
     });
     accountDB.grantReadWriteData(
       postOrganizationUpdateDeliveryAddressesHandler
     );
     return postOrganizationUpdateDeliveryAddressesHandler;
-  }
-  createOrganizationHasUserHandler(
-    buildConfig: BuildConfig,
-    accountDB: cdk.aws_dynamodb.ITable
-  ) {
-    const organizationHasUser = new NodejsFunction(
-      this,
-      "OrganizationsUserExists",
-      {
-        memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_18_X,
-        functionName: "OrganizationsUserExists",
-        handler: "handler",
-        timeout: cdk.Duration.seconds(10),
-        entry: path.join(
-          __dirname,
-          `/../src/handlers/organizations/user/exists.ts`
-        ),
-        bundling: {
-          target: "es2020",
-          keepNames: true,
-          logLevel: LogLevel.INFO,
-          sourceMap: true,
-          minify: true,
-        },
-        environment: {
-          NODE_OPTIONS: "--enable-source-maps",
-          Region: buildConfig.Region,
-          AccountDB: buildConfig.AccountDBName,
-        },
-      }
-    );
-    accountDB.grantReadData(organizationHasUser);
-    return organizationHasUser;
   }
   createGetOrganizationHandler(
     buildConfig: BuildConfig,
@@ -751,7 +819,7 @@ export class HalappAccountStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
           __dirname,
-          `/../src/handlers/organizations/get/organization/index.ts`
+          `/../src/handlers/organizations/get/id/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -773,10 +841,103 @@ export class HalappAccountStack extends cdk.Stack {
         "GetOrganizationHandlerIntegration",
         getOrganizationHandler
       ),
-      path: "/organization/{organizationId}",
+      path: "/organizations/{organizationId}",
       authorizer,
     });
     accountDB.grantReadData(getOrganizationHandler);
     return getOrganizationHandler;
+  }
+  createGetOrganizationUsersHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const getOrganizationHandler = new NodejsFunction(
+      this,
+      "AccountGetOrganizationUsersHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-GetOrganizationUsersHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/get/id/users/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetOrganizationUsersHandlerIntegration",
+        getOrganizationHandler
+      ),
+      path: "/organizations/{organizationId}/users",
+      authorizer,
+    });
+    accountDB.grantReadData(getOrganizationHandler);
+    return getOrganizationHandler;
+  }
+  createPostOrganizationUser(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable,
+    organizationCreatedTopic: cdk.aws_sns.Topic
+  ) {
+    const postOrganizationUserHandler = new NodejsFunction(
+      this,
+      "AccountPostOrganizationUserHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-PostOrganizationUserHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/organizations/post/id/users/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+          SNSOrganizationCreatedTopicArn: organizationCreatedTopic.topicArn,
+        },
+      }
+    );
+    organizationCreatedTopic.grantPublish(postOrganizationUserHandler);
+    accountApi.addRoutes({
+      methods: [HttpMethod.POST],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PostOrganizationUsersHandlerIntegration",
+        postOrganizationUserHandler
+      ),
+      path: "/organizations/{organizationId}/users",
+      authorizer,
+    });
+    accountDB.grantReadData(postOrganizationUserHandler);
+    return postOrganizationUserHandler;
   }
 }

@@ -1,5 +1,5 @@
 import { trMoment } from "../utils/timezone";
-import { AccountEventType } from "../models/account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 import { UserRepositoryDTO } from "../models/dto/account.repository.dto";
 import { UserEvent } from "../models/events";
 import { UserCreatedV1Payload } from "../models/events/user-created-v1.event";

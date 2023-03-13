@@ -18,6 +18,8 @@ UserPoolClientID: 5g536qr72pjrt49saqb64jtedt
 AUTH_SNSUserCreatedTopic: "AUTH_UserCreatedTopic"
 AUTH_SNSUserJoinedOrganizationTopic: "AUTH_UserJoinedOrganizationTopic"
 SNSOrganizationCreatedTopic: "ACCOUNT_OrganizationCreatedTopic"
+ORDER_SNSOrderCreatedTopic: "ORDER_OrderCreatedTopic"
+
 
 AUTH_SQSOrganizationCreatedQueue: "AUTH_OrganizationCreatedQueue"
 SQSUserCreatedQueue: "ACCOUNT_UserCreatedQueue"

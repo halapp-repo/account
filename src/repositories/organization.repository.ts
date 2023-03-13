@@ -46,21 +46,33 @@ export default class OrganizationRepository {
         ":AccountID": `org#${id}`,
       },
     });
-    const { Items } = await this.store.dynamoClient.send(command);
-    if (!Items) {
-      return null;
-    }
-    const listOfEvents = this.mapper.toListModel(
-      Items.map((i) => {
-        return <OrganizationRepositoryDTO>{
-          AccountID: i["AccountID"],
-          TS: i["TS"],
-          EventType: i["EventType"],
-          Payload: i["Payload"],
-          VKN: i["VKN"],
-        };
-      })
-    );
+    let listOfEvents: OrganizationEvent[] = [];
+    let lastEvaluatedKey = undefined;
+    do {
+      const { Items, LastEvaluatedKey } = await this.store.dynamoClient.send(
+        command
+      );
+      lastEvaluatedKey = LastEvaluatedKey;
+      if (!Items) {
+        return null;
+      }
+      listOfEvents = [
+        ...listOfEvents,
+        ...this.mapper.toListModel(
+          Items.map((i) => {
+            return <OrganizationRepositoryDTO>{
+              AccountID: i["AccountID"],
+              TS: i["TS"],
+              EventType: i["EventType"],
+              Payload: i["Payload"],
+              VKN: i["VKN"],
+            };
+          })
+        ),
+      ];
+      command.input.ExclusiveStartKey = LastEvaluatedKey;
+    } while (typeof lastEvaluatedKey !== "undefined");
+
     const sortedEvents = listOfEvents.sort(getComparator("asc", "TS"));
     const org = new Organization();
     for (const event of sortedEvents) {
