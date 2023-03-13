@@ -2,7 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { SNSStore } from "../repositories/sns-store";
 import { PublishCommand } from "@aws-sdk/client-sns";
 import createHttpError = require("http-errors");
-import { AccountEventType } from "../models/account-event-type.enum";
+import { AccountEventType } from "@halapp/common";
 
 @injectable()
 export class SNSService {

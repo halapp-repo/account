@@ -54,7 +54,7 @@ export class HalappAccountStack extends cdk.Stack {
     // **************
     // Create SQS (Order Created)
     // ****************
-    const orderCreatedSQS = this.createOrderCreatedQueue(buildConfig);
+    const orderSQS = this.createOrderQueue(buildConfig);
     // **************
     // Create SQS (User Joined Organization)
     // ****************
@@ -79,7 +79,7 @@ export class HalappAccountStack extends cdk.Stack {
       userJoinedOrganizationSQS,
       accountDB
     );
-    this.createOrderCreatedHandler(buildConfig, orderCreatedSQS, accountDB);
+    this.createOrderSQSHandler(buildConfig, orderSQS, accountDB);
     this.createGetOrganizationsHandler(
       buildConfig,
       accountApi,
@@ -385,13 +385,13 @@ export class HalappAccountStack extends cdk.Stack {
     );
     return userJoinedOrganizationQueue;
   }
-  createOrderCreatedQueue(buildConfig: BuildConfig): cdk.aws_sqs.Queue {
-    const orderCreatedDLQ = new sqs.Queue(this, "Account-OrderCreatedDLQ", {
-      queueName: "Account-OrderCreatedDLQ",
+  createOrderQueue(buildConfig: BuildConfig): cdk.aws_sqs.Queue {
+    const orderCreatedDLQ = new sqs.Queue(this, "Account-OrderDLQ", {
+      queueName: "Account-OrderDLQ",
       retentionPeriod: cdk.Duration.hours(10),
     });
-    const orderCreatedQueue = new sqs.Queue(this, "Account-OrderCreatedQueue", {
-      queueName: "Account-OrderCreatedQueue",
+    const orderCreatedQueue = new sqs.Queue(this, "Account-OrderQueue", {
+      queueName: "Account-OrderQueue",
       visibilityTimeout: cdk.Duration.minutes(2),
       receiveMessageWaitTime: cdk.Duration.seconds(5),
       retentionPeriod: cdk.Duration.days(1),
@@ -411,20 +411,20 @@ export class HalappAccountStack extends cdk.Stack {
             "aws:SourceAccount": this.account,
           },
           ArnLike: {
-            "aws:SourceArn": `arn:aws:sns:*:*:${buildConfig.ORDER_SNSOrderCreatedTopic}`,
+            "aws:SourceArn": `arn:aws:sns:*:*:${buildConfig.ORDER_SNSOrderTopic}`,
           },
         },
       })
     );
-    const importedOrderCreatedTopic = sns.Topic.fromTopicArn(
+    const importedOrderTopic = sns.Topic.fromTopicArn(
       this,
-      "ImportedOrderCreatedTopic",
-      `arn:aws:sns:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.ORDER_SNSOrderCreatedTopic}`
+      "ImportedOrderTopic",
+      `arn:aws:sns:${buildConfig.Region}:${buildConfig.AccountID}:${buildConfig.ORDER_SNSOrderTopic}`
     );
-    if (!importedOrderCreatedTopic) {
-      throw new Error("importedOrderCreatedTopic needs to come from Order");
+    if (!importedOrderTopic) {
+      throw new Error("importedOrderTopic needs to come from Order");
     }
-    importedOrderCreatedTopic.addSubscription(
+    importedOrderTopic.addSubscription(
       new subs.SqsSubscription(orderCreatedQueue)
     );
     return orderCreatedQueue;
@@ -509,23 +509,23 @@ export class HalappAccountStack extends cdk.Stack {
     accountDB.grantReadWriteData(userJoinedOrganizationHandler);
     return userJoinedOrganizationHandler;
   }
-  createOrderCreatedHandler(
+  createOrderSQSHandler(
     buildConfig: BuildConfig,
     orderCreatedSQS: cdk.aws_sqs.Queue,
     accountDB: cdk.aws_dynamodb.ITable
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     const orderCreatedHandler = new NodejsFunction(
       this,
-      "Account-SQSOrderCreatedHandler",
+      "Account-SQSOrderHandler",
       {
         memorySize: 1024,
         timeout: cdk.Duration.minutes(1),
-        functionName: "Account-SQSOrderCreatedHandler",
+        functionName: "Account-SQSOrderHandler",
         runtime: lambda.Runtime.NODEJS_18_X,
         handler: "handler",
         entry: path.join(
           __dirname,
-          `/../src/handlers/organizations/post/id/order/index.ts`
+          `/../src/handlers/organizations/sqs/order/index.ts`
         ),
         bundling: {
           target: "es2020",
@@ -583,11 +583,11 @@ export class HalappAccountStack extends cdk.Stack {
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     const getOrganizationsHandler = new NodejsFunction(
       this,
-      "AccountGetOrganizationsHandler",
+      "AccountGetOrganizationsHandler2",
       {
         memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_16_X,
-        functionName: "AccountGetOrganizationsHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-GetOrganizationsHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(15),
         entry: path.join(
@@ -628,11 +628,11 @@ export class HalappAccountStack extends cdk.Stack {
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     const adminPutOrganizationActivationChangedHandler = new NodejsFunction(
       this,
-      "AccountAdminPutOrganizationActivationChangedHandler",
+      "AccountAdminPutOrganizationActivationChangedHandler2",
       {
         memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_16_X,
-        functionName: "AccountAdminPutOrganizationActivationChangedHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-AdminPutOrganizationActivationChangedHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
@@ -673,11 +673,11 @@ export class HalappAccountStack extends cdk.Stack {
   ): cdk.aws_lambda_nodejs.NodejsFunction {
     const adminGetOrganizationsHandler = new NodejsFunction(
       this,
-      "AccountAdminGetOrganizationsHandler",
+      "AccountAdminGetOrganizationsHandler2",
       {
         memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_16_X,
-        functionName: "AccountAdminGetOrganizationsHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-AdminGetOrganizationsHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
@@ -718,11 +718,11 @@ export class HalappAccountStack extends cdk.Stack {
   ) {
     const putOrganizationUpdateHandler = new NodejsFunction(
       this,
-      "PutOrganizationsUpdateHandler",
+      "Account-PutOrganizationsUpdateHandler",
       {
         memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_16_X,
-        functionName: "PutOrganizationsUpdateHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-PutOrganizationsUpdateHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(10),
         entry: path.join(
@@ -763,11 +763,11 @@ export class HalappAccountStack extends cdk.Stack {
   ) {
     const postOrganizationUpdateDeliveryAddressesHandler = new NodejsFunction(
       this,
-      "PostOrganizationsUpdateDeliveryAddressesHandler",
+      "AccountPostOrganizationsUpdateDeliveryAddressesHandler",
       {
         memorySize: 1024,
-        runtime: lambda.Runtime.NODEJS_16_X,
-        functionName: "PostOrganizationsUpdateDeliveryAddressesHandler",
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-PostOrganizationsUpdateDeliveryAddressesHandler",
         handler: "handler",
         timeout: cdk.Duration.seconds(10),
         entry: path.join(

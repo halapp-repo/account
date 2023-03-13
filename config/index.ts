@@ -64,10 +64,7 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "SQSUserJoinedOrganizationQueue"
     ),
-    ORDER_SNSOrderCreatedTopic: ensureString(
-      unparsedEnv,
-      "ORDER_SNSOrderCreatedTopic"
-    ),
+    ORDER_SNSOrderTopic: ensureString(unparsedEnv, "ORDER_SNSOrderTopic"),
   };
   return buildConfig;
 }

@@ -11,7 +11,11 @@ export class OrgToOrgViewModelMapper extends IMapper<
   Organization,
   OrganizationVM
 > {
-  toDTO(arg: Organization, includeEvents?: boolean): OrganizationVM {
+  toDTO(
+    arg: Organization,
+    includeEvents?: boolean,
+    eventTypes?: AccountEventType[]
+  ): OrganizationVM {
     return {
       VKN: arg.VKN,
       ID: arg.ID,
@@ -54,10 +58,10 @@ export class OrgToOrgViewModelMapper extends IMapper<
               (e) =>
                 e.EventType === AccountEventType.OrganizationCreatedV1 ||
                 e.EventType ===
-                  AccountEventType.OrganizationActivationToggledV1 ||
+                  AccountEventType.OrganizationDepositedToBalanceV1 ||
+                e.EventType === AccountEventType.OrganizationPaidWithCardV1 ||
                 e.EventType ===
-                  AccountEventType.OrganizationActivationToggledV2 ||
-                e.EventType === AccountEventType.OrganizationWithdrewV1
+                  AccountEventType.OrganizationWithdrewFromBalanceV1
             ).map((e) => {
               return {
                 EventType: e.EventType,

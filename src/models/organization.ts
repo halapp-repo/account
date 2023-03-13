@@ -14,7 +14,8 @@ import { OrganizationActivationToggledV1Event } from "./events/organization-acti
 import { OrganizationUpdatedV1Event } from "./events/organization-updated-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Event } from "./events/organization-update-delivery-addresses-v1.event";
 import { OrganizationActivationToggledV2Event } from "./events/organization-activation-toggled-v2.event";
-import { OrganizationWithdrewV1Event } from "./events/organization-withdrew-v1.event";
+import { OrganizationWithdrewFromBalanceV1Event } from "./events/organization-withdrew-v1.event";
+import { OrganizationDepositedToBalanceV1Event } from "./events/organization-deposited-to-balance-v1.event";
 
 class Address {
   Active?: boolean;
@@ -80,8 +81,15 @@ class Organization extends EventSourceAggregate<OrganizationEvent> {
     ) {
       this.whenOrganizationUpdateDeliveryAddressesV1(event);
       return;
-    } else if (event.EventType === AccountEventType.OrganizationWithdrewV1) {
+    } else if (
+      event.EventType === AccountEventType.OrganizationWithdrewFromBalanceV1
+    ) {
       this.whenOrganizationWithdrewV1(event);
+      return;
+    } else if (
+      event.EventType === AccountEventType.OrganizationDepositedToBalanceV1
+    ) {
+      this.whenOrganizationDepositedV1(event);
       return;
     }
   }
@@ -177,8 +185,11 @@ class Organization extends EventSourceAggregate<OrganizationEvent> {
   ) {
     this.DeliveryAddresses = [...event.Payload.DeliveryAddresses];
   }
-  whenOrganizationWithdrewV1(event: OrganizationWithdrewV1Event) {
+  whenOrganizationWithdrewV1(event: OrganizationWithdrewFromBalanceV1Event) {
     this.Balance = this.Balance - event.Payload.WithdrawAmount;
+  }
+  whenOrganizationDepositedV1(event: OrganizationDepositedToBalanceV1Event) {
+    this.Balance = this.Balance + event.Payload.DepositAmount;
   }
   static create({
     vkn,
@@ -336,26 +347,39 @@ class Organization extends EventSourceAggregate<OrganizationEvent> {
   hasUser(userId: string): boolean {
     return this.JoinedUsers.includes(userId);
   }
-  withdraw(
-    orderId: string,
-    paymentMethodType: PaymentMethodType,
-    amount: number
-  ) {
-    const withdrawAmount =
-      paymentMethodType === PaymentMethodType.card ? 0 : amount;
-    const event = <OrganizationWithdrewV1Event>{
+  withdrawFromBalance(orderId: string, amount: number) {
+    const event = <OrganizationWithdrewFromBalanceV1Event>{
       OrgID: this.ID,
-      EventType: AccountEventType.OrganizationWithdrewV1,
+      EventType: AccountEventType.OrganizationWithdrewFromBalanceV1,
       TS: trMoment(),
       Payload: {
         OrderId: orderId,
-        PaymentMethodType: paymentMethodType,
-        WithdrawAmount: withdrawAmount,
-        CurrentBalance: this.Balance - withdrawAmount,
+        PaymentMethodType: PaymentMethodType.balance,
+        WithdrawAmount: amount,
+        CurrentBalance: this.Balance - amount,
       },
     };
     this.causes(event);
   }
+  depositToBalance(
+    orderId: string,
+    paymentMethodType: PaymentMethodType,
+    amount: number
+  ) {
+    const event = <OrganizationDepositedToBalanceV1Event>{
+      OrgID: this.ID,
+      EventType: AccountEventType.OrganizationDepositedToBalanceV1,
+      TS: trMoment(),
+      Payload: {
+        OrderId: orderId,
+        PaymentMethodType: paymentMethodType,
+        DepositAmount: amount,
+        CurrentBalance: this.Balance + amount,
+      },
+    };
+    this.causes(event);
+  }
+  payWithCard() {}
 }
 
 export { Organization, Address };
