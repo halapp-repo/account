@@ -41,7 +41,6 @@ const lambdaHandler = async function (
 const handler = middy(lambdaHandler)
   .use(httpResponseSerializer())
   .use(httpErrorHandler())
-  .use(cors())
   .use(adminValidatorMiddleware());
 
 export { handler, lambdaHandler };
