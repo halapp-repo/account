@@ -26,7 +26,10 @@ export class HalappAccountStack extends cdk.Stack {
     // BUILD CONFIG
     //******************
     const buildConfig = getConfig(scope as cdk.App);
-
+    //************
+    //  Account Images Bucket
+    //************
+    const accountImagesBucket = this.createAccountImagesBucket(buildConfig);
     //************
     // Import Email Template Bucket
     //************
@@ -129,6 +132,24 @@ export class HalappAccountStack extends cdk.Stack {
       accountDB,
       organizationCreatedTopic
     );
+    this.createGetUserHandler(buildConfig, accountApi, authorizer, accountDB);
+    this.createPutUserHandler(buildConfig, accountApi, authorizer, accountDB);
+    this.createPostUserAvatar(
+      buildConfig,
+      accountApi,
+      authorizer,
+      accountDB,
+      accountImagesBucket
+    );
+  }
+  createAccountImagesBucket(buildConfig: BuildConfig): cdk.aws_s3.IBucket {
+    const accountImagesBucket = new s3.Bucket(this, "HalAccountImagesBucket", {
+      bucketName: `${buildConfig.S3HalAccountImagesBucketName}-${this.account}`,
+      autoDeleteObjects: false,
+      versioned: true,
+      publicReadAccess: true,
+    });
+    return accountImagesBucket;
   }
   createAccountApiGateway(): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
@@ -939,5 +960,129 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadData(postOrganizationUserHandler);
     return postOrganizationUserHandler;
+  }
+  createGetUserHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const getUserHandler = new NodejsFunction(this, "AccountGetUserHandler", {
+      memorySize: 1024,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      functionName: "Account-GetUserHandler",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(10),
+      entry: path.join(__dirname, `/../src/handlers/users/get/id/index.ts`),
+      bundling: {
+        target: "es2020",
+        keepNames: true,
+        logLevel: LogLevel.INFO,
+        sourceMap: true,
+        minify: true,
+      },
+      environment: {
+        NODE_OPTIONS: "--enable-source-maps",
+        Region: buildConfig.Region,
+        AccountDB: buildConfig.AccountDBName,
+      },
+    });
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetUserHandlerIntegration",
+        getUserHandler
+      ),
+      path: "/users/{userId}",
+      authorizer,
+    });
+    accountDB.grantReadData(getUserHandler);
+    return getUserHandler;
+  }
+  createPutUserHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const putUserHandler = new NodejsFunction(this, "AccountPutUserHandler", {
+      memorySize: 1024,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      functionName: "Account-PutUserHandler",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(10),
+      entry: path.join(__dirname, `/../src/handlers/users/put/id/index.ts`),
+      bundling: {
+        target: "es2020",
+        keepNames: true,
+        logLevel: LogLevel.INFO,
+        sourceMap: true,
+        minify: true,
+      },
+      environment: {
+        NODE_OPTIONS: "--enable-source-maps",
+        Region: buildConfig.Region,
+        AccountDB: buildConfig.AccountDBName,
+      },
+    });
+    accountApi.addRoutes({
+      methods: [HttpMethod.PUT],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PutUserHandlerIntegration",
+        putUserHandler
+      ),
+      path: "/users/{userId}",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(putUserHandler);
+    return putUserHandler;
+  }
+  createPostUserAvatar(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable,
+    imagesBucket: cdk.aws_s3.IBucket
+  ) {
+    const postUserAvatarHandler = new NodejsFunction(
+      this,
+      "AccountPostUserAvatarHandler",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-PostUserAvatarHandler",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/users/post/id/avatar/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          AccountDB: buildConfig.AccountDBName,
+          S3BucketName: imagesBucket.bucketName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.POST],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PostUserAvatarHandlerIntegration",
+        postUserAvatarHandler
+      ),
+      path: "/users/{userId}/avatar",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(postUserAvatarHandler);
+    imagesBucket.grantWrite(postUserAvatarHandler);
+    return postUserAvatarHandler;
   }
 }

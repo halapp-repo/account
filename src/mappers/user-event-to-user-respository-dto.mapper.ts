@@ -5,10 +5,6 @@ import { UserEvent } from "../models/events";
 import { UserCreatedV1Payload } from "../models/events/user-created-v1.event";
 import { IMapper } from "./base.mapper";
 import createHttpError = require("http-errors");
-import {
-  UserJoinedOrganizationV1Event,
-  UserJoinedOrganizationV1Payload,
-} from "../models/events/user-joined-organization-v1.event";
 
 export class UserEventToUserRepositoryDTOMapper extends IMapper<
   UserEvent,
@@ -41,13 +37,16 @@ export class UserEventToUserRepositoryDTOMapper extends IMapper<
         TS: ts,
         Payload: payload as UserCreatedV1Payload,
       };
-    } else if (eventType === AccountEventType.UserJoinedV1) {
+    } else if (
+      eventType === AccountEventType.UserJoinedV1 ||
+      eventType === AccountEventType.UserUpdatedV1
+    ) {
       return {
         UserID: ID,
         EventType: eventType,
-        Payload: payload as UserJoinedOrganizationV1Payload,
+        Payload: payload,
         TS: ts,
-      } as UserJoinedOrganizationV1Event;
+      };
     } else {
       throw createHttpError.InternalServerError("Unsupported event type");
     }

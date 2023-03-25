@@ -8,6 +8,10 @@ export class UserToUserViewModelMapper extends IMapper<User, UserVM> {
       Active: arg.Active,
       Email: arg.Email,
       ID: arg.ID,
+      BaseImageUrl: arg.BaseImageUrl,
+      FirstName: arg.FirstName,
+      LastName: arg.LastName,
+      PhoneNumber: arg.PhoneNumber,
     } as UserVM;
   }
   toModel(arg: UserVM): User {

@@ -21,4 +21,6 @@ export interface BuildConfig {
   readonly AUTH_SQSOrganizationCreatedQueue: string;
   readonly SQSUserCreatedQueue: string;
   readonly SQSUserJoinedOrganizationQueue: string;
+  // S3
+  readonly S3HalAccountImagesBucketName: string;
 }

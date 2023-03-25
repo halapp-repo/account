@@ -2,14 +2,8 @@ import { trMoment } from "../utils/timezone";
 import { AccountEventType } from "@halapp/common";
 import { OrganizationRepositoryDTO } from "../models/dto/account.repository.dto";
 import { OrganizationEvent } from "../models/events";
-import { OrganizationCreatedV1Payload } from "../models/events/organization-created-v1.event";
 import { IMapper } from "./base.mapper";
 import createHttpError = require("http-errors");
-import { UserJoinedV1Payload } from "../models/events/organization-userjoined-v1.event";
-import { OrganizationActivationToggledV1Payload } from "../models/events/organization-activation-toggled-v1.event";
-import { OrganizationUpdatedV1Payload } from "../models/events/organization-updated-v1.event";
-import { OrganizationUpdateDeliveryAddressesV1Payload } from "../models/events/organization-update-delivery-addresses-v1.event";
-import { OrganizationActivationToggledV2Payload } from "../models/events/organization-activation-toggled-v2.event";
 
 export class OrgEventToOrgRepositoryDTOMapper extends IMapper<
   OrganizationEvent,

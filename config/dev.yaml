@@ -25,3 +25,5 @@ AUTH_SQSOrganizationCreatedQueue: "AUTH_OrganizationCreatedQueue"
 SQSUserCreatedQueue: "ACCOUNT_UserCreatedQueue"
 SQSUserJoinedOrganizationQueue: "ACCOUNT_UserJoinedOrganizationQueue"
 
+S3HalAccountImagesBucketName: "hal-account"
+

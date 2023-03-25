@@ -65,6 +65,10 @@ function getConfig(app: cdk.App): BuildConfig {
       "SQSUserJoinedOrganizationQueue"
     ),
     ORDER_SNSOrderTopic: ensureString(unparsedEnv, "ORDER_SNSOrderTopic"),
+    S3HalAccountImagesBucketName: ensureString(
+      unparsedEnv,
+      "S3HalAccountImagesBucketName"
+    ),
   };
   return buildConfig;
 }
