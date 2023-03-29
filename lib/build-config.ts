@@ -6,6 +6,7 @@ export interface BuildConfig {
   readonly SESFromEmail: string;
   readonly SESCCEmail: string;
   readonly S3OrganizationEnrollmentEmailTemplate: string;
+  readonly BaseURL: string;
 
   readonly ShouldCreateDynamoAccountDB: boolean;
   readonly AccountDBName: string;

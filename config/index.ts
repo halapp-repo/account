@@ -35,6 +35,7 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "S3OrganizationEnrollmentEmailTemplate"
     ),
+    BaseURL: ensureString(unparsedEnv, "BaseURL"),
 
     ShouldCreateDynamoAccountDB:
       ensureString(unparsedEnv, "ShouldCreateDynamoAccountDB") === "true",
