@@ -11,6 +11,7 @@ import { SESStore } from "../repositories/ses-store";
 import { SNSStore } from "../repositories/sns-store";
 import UserRepository from "../repositories/user.repository";
 import { OrganizationService } from "../services/organization.service";
+import { S3Service } from "../services/s3.service";
 import { UserService } from "../services/user.service";
 
 container.registerSingleton<SESStore>("SESStore", SESStore);
@@ -43,6 +44,9 @@ container.register("UserService", {
 });
 container.register("OrderToOrderViewModelMapper", {
   useClass: OrderToOrderViewModelMapper,
+});
+container.register("S3Service", {
+  useClass: S3Service,
 });
 
 export const diContainer = container;

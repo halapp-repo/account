@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { CityType, PaymentMethodType } from "@halapp/common";
+import { CityType, ExtraCharge, PaymentMethodType } from "@halapp/common";
 
 class OrderItem {
   ProductId: string;
@@ -17,16 +17,15 @@ class Order {
   Id: string;
   OrganizationId: string;
 
+  @Type(() => ExtraCharge)
+  ExtraCharges?: ExtraCharge[];
+
   @Type(() => OrderItem)
   Items: OrderItem[];
 
   PaymentMethodType: PaymentMethodType;
 
-  get TotalPrice(): number {
-    return this.Items.reduce((acc, curr) => {
-      return acc + curr.TotalPrice;
-    }, 0);
-  }
+  TotalPrice: number;
 }
 
 export { Order, OrderItem };

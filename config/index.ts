@@ -35,6 +35,7 @@ function getConfig(app: cdk.App): BuildConfig {
       unparsedEnv,
       "S3OrganizationEnrollmentEmailTemplate"
     ),
+    BaseURL: ensureString(unparsedEnv, "BaseURL"),
 
     ShouldCreateDynamoAccountDB:
       ensureString(unparsedEnv, "ShouldCreateDynamoAccountDB") === "true",
@@ -65,6 +66,10 @@ function getConfig(app: cdk.App): BuildConfig {
       "SQSUserJoinedOrganizationQueue"
     ),
     ORDER_SNSOrderTopic: ensureString(unparsedEnv, "ORDER_SNSOrderTopic"),
+    S3HalAccountImagesBucketName: ensureString(
+      unparsedEnv,
+      "S3HalAccountImagesBucketName"
+    ),
   };
   return buildConfig;
 }

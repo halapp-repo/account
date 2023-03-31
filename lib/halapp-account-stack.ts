@@ -7,6 +7,7 @@ import { NodejsFunction, LogLevel } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as path from "path";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
@@ -26,7 +27,23 @@ export class HalappAccountStack extends cdk.Stack {
     // BUILD CONFIG
     //******************
     const buildConfig = getConfig(scope as cdk.App);
-
+    // 👇 layer we've written
+    const sharpLayer = new lambda.LayerVersion(
+      this,
+      "sharpLayerV0.32.0-layer",
+      {
+        compatibleRuntimes: [
+          lambda.Runtime.NODEJS_18_X,
+          lambda.Runtime.NODEJS_16_X,
+        ],
+        code: lambda.Code.fromAsset("./layers/sharp-v0.32.0-layer.zip"),
+        description: "sharp v:0.32.0",
+      }
+    );
+    //************
+    //  Account Images Bucket
+    //************
+    const halAccountBucket = this.createHalAccountBucket(buildConfig);
     //************
     // Import Email Template Bucket
     //************
@@ -64,7 +81,7 @@ export class HalappAccountStack extends cdk.Stack {
     // ********************
     // Create API Gateway
     // ********************
-    const accountApi = this.createAccountApiGateway();
+    const accountApi = this.createAccountApiGateway(buildConfig);
 
     this.createOrganizationEnrollmentHandler(
       buildConfig,
@@ -129,8 +146,38 @@ export class HalappAccountStack extends cdk.Stack {
       accountDB,
       organizationCreatedTopic
     );
+    this.createGetUserHandler(buildConfig, accountApi, authorizer, accountDB);
+    this.createPutUserHandler(buildConfig, accountApi, authorizer, accountDB);
+    this.createGetS3HalAccountPresignURL(
+      buildConfig,
+      accountApi,
+      authorizer,
+      halAccountBucket
+    );
+    this.resizeAvatar(buildConfig, accountDB, halAccountBucket, sharpLayer);
   }
-  createAccountApiGateway(): apiGateway.HttpApi {
+  createHalAccountBucket(buildConfig: BuildConfig): cdk.aws_s3.IBucket {
+    const halAccountBucket = new s3.Bucket(this, "HalAccountBucket", {
+      bucketName: `${buildConfig.S3HalAccountImagesBucketName}-${this.account}`,
+      autoDeleteObjects: false,
+      versioned: true,
+      publicReadAccess: true,
+      cors: [
+        {
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.POST,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.HEAD,
+          ],
+          allowedOrigins: [buildConfig.BaseURL],
+          allowedHeaders: ["*"],
+        },
+      ],
+    });
+    return halAccountBucket;
+  }
+  createAccountApiGateway(buildConfig: BuildConfig): apiGateway.HttpApi {
     const accountApi = new apiGateway.HttpApi(this, "HalAppAccountApi", {
       description: "HalApp Account Api Gateway",
       corsPreflight: {
@@ -149,7 +196,10 @@ export class HalappAccountStack extends cdk.Stack {
           apiGateway.CorsHttpMethod.DELETE,
           apiGateway.CorsHttpMethod.PATCH,
         ],
-        allowOrigins: ["*"],
+        allowOrigins:
+          buildConfig.Environment === "PRODUCTION"
+            ? ["https://halapp.io", "https://www.halapp.io"]
+            : ["*"],
       },
     });
     return accountApi;
@@ -939,5 +989,178 @@ export class HalappAccountStack extends cdk.Stack {
     });
     accountDB.grantReadData(postOrganizationUserHandler);
     return postOrganizationUserHandler;
+  }
+  createGetUserHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const getUserHandler = new NodejsFunction(this, "AccountGetUserHandler", {
+      memorySize: 1024,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      functionName: "Account-GetUserHandler",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(10),
+      entry: path.join(__dirname, `/../src/handlers/users/get/id/index.ts`),
+      bundling: {
+        target: "es2020",
+        keepNames: true,
+        logLevel: LogLevel.INFO,
+        sourceMap: true,
+        minify: true,
+      },
+      environment: {
+        NODE_OPTIONS: "--enable-source-maps",
+        Region: buildConfig.Region,
+        AccountDB: buildConfig.AccountDBName,
+      },
+    });
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetUserHandlerIntegration",
+        getUserHandler
+      ),
+      path: "/users/{userId}",
+      authorizer,
+    });
+    accountDB.grantReadData(getUserHandler);
+    return getUserHandler;
+  }
+  createPutUserHandler(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountDB: cdk.aws_dynamodb.ITable
+  ) {
+    const putUserHandler = new NodejsFunction(this, "AccountPutUserHandler", {
+      memorySize: 1024,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      functionName: "Account-PutUserHandler",
+      handler: "handler",
+      timeout: cdk.Duration.seconds(10),
+      entry: path.join(__dirname, `/../src/handlers/users/put/id/index.ts`),
+      bundling: {
+        target: "es2020",
+        keepNames: true,
+        logLevel: LogLevel.INFO,
+        sourceMap: true,
+        minify: true,
+      },
+      environment: {
+        NODE_OPTIONS: "--enable-source-maps",
+        Region: buildConfig.Region,
+        AccountDB: buildConfig.AccountDBName,
+      },
+    });
+    accountApi.addRoutes({
+      methods: [HttpMethod.PUT],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "PutUserHandlerIntegration",
+        putUserHandler
+      ),
+      path: "/users/{userId}",
+      authorizer,
+    });
+    accountDB.grantReadWriteData(putUserHandler);
+    return putUserHandler;
+  }
+  createGetS3HalAccountPresignURL(
+    buildConfig: BuildConfig,
+    accountApi: apiGateway.HttpApi,
+    authorizer: apiGatewayAuthorizers.HttpUserPoolAuthorizer,
+    accountImagesBucket: cdk.aws_s3.IBucket
+  ) {
+    const getS3HalAccountPresignUrlHandler = new NodejsFunction(
+      this,
+      "AccountGetS3HalAccountPresignURL",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-GetS3HalAccountPresignURL",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(10),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/s3/hal-account/presignurl/index.ts`
+        ),
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          S3BucketName: accountImagesBucket.bucketName,
+        },
+      }
+    );
+    accountApi.addRoutes({
+      methods: [HttpMethod.GET],
+      integration: new apiGatewayIntegrations.HttpLambdaIntegration(
+        "GetS3HalAccountPresignURLHandlerIntegration",
+        getS3HalAccountPresignUrlHandler
+      ),
+      path: "/s3/hal-account/presignurl",
+      authorizer,
+    });
+    accountImagesBucket.grantPut(getS3HalAccountPresignUrlHandler);
+    accountImagesBucket.grantPutAcl(getS3HalAccountPresignUrlHandler);
+    return getS3HalAccountPresignUrlHandler;
+  }
+  resizeAvatar(
+    buildConfig: BuildConfig,
+    accountDB: cdk.aws_dynamodb.ITable,
+    accountImagesBucket: cdk.aws_s3.IBucket,
+    sharpLayer: cdk.aws_lambda.LayerVersion
+  ) {
+    const s3ThumbnailHandler = new NodejsFunction(
+      this,
+      "AccountS3HalAccountThumbnail",
+      {
+        memorySize: 1024,
+        runtime: lambda.Runtime.NODEJS_18_X,
+        functionName: "Account-S3HalAccountThumbnail",
+        handler: "handler",
+        timeout: cdk.Duration.seconds(30),
+        entry: path.join(
+          __dirname,
+          `/../src/handlers/s3/hal-account/thumbnail/index.ts`
+        ),
+
+        bundling: {
+          target: "es2020",
+          keepNames: true,
+          logLevel: LogLevel.INFO,
+          sourceMap: true,
+          minify: true,
+          externalModules: [
+            "aws-sdk", // Use the 'aws-sdk' available in the Lambda runtime
+            "sharp",
+          ],
+        },
+        environment: {
+          NODE_OPTIONS: "--enable-source-maps",
+          Region: buildConfig.Region,
+          S3BucketName: accountImagesBucket.bucketName,
+          AccountDB: buildConfig.AccountDBName,
+        },
+        layers: [sharpLayer],
+      }
+    );
+    accountImagesBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(s3ThumbnailHandler),
+      {
+        prefix: "upload",
+      }
+    );
+    accountImagesBucket.grantReadWrite(s3ThumbnailHandler);
+    accountDB.grantReadWriteData(s3ThumbnailHandler);
+    return s3ThumbnailHandler;
   }
 }

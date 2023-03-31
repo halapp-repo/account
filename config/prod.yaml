@@ -5,6 +5,7 @@ Region: eu-central-1
 SESFromEmail: no-reply@halapp.io
 SESCCEmail: info@halapp.io
 S3OrganizationEnrollmentEmailTemplate: organization-enrollment.ejs
+BaseURL: "https://halapp.io"
 # comes from HalApp-Auth 
 # comes from HalApp-Auth 
 
@@ -24,4 +25,7 @@ ORDER_SNSOrderTopic: "ORDER_OrderTopic"
 AUTH_SQSOrganizationCreatedQueue: "AUTH_OrganizationCreatedQueue"
 SQSUserCreatedQueue: "ACCOUNT_UserCreatedQueue"
 SQSUserJoinedOrganizationQueue: "ACCOUNT_UserJoinedOrganizationQueue"
+
+S3HalAccountImagesBucketName: "hal-account"
+
 

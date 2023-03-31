@@ -6,7 +6,10 @@ import { UserCreatedV1Event } from "./user-created-v1.event";
 import { OrganizationUpdateDeliveryAddressesV1Event } from "./organization-update-delivery-addresses-v1.event";
 import { UserJoinedOrganizationV1Event } from "./user-joined-organization-v1.event";
 import { OrganizationActivationToggledV2Event } from "./organization-activation-toggled-v2.event";
-import { OrganizationWithdrewV1Event } from "./organization-withdrew-v1.event";
+import { OrganizationWithdrewFromBalanceV1Event } from "./organization-withdrew-v1.event";
+import { OrganizationDepositedToBalanceV1Event } from "./organization-deposited-to-balance-v1.event";
+import { UserUpdatedV1Event } from "./user-updated-v1.event";
+import { OrganizationPaidWithCardV1Event } from "./organization-paid-with-card-v1.event";
 
 export type OrganizationEvent =
   | OrganizationCreatedV1Event
@@ -15,5 +18,11 @@ export type OrganizationEvent =
   | OrganizationUpdatedV1Event
   | OrganizationUpdateDeliveryAddressesV1Event
   | OrganizationActivationToggledV2Event
-  | OrganizationWithdrewV1Event;
-export type UserEvent = UserCreatedV1Event | UserJoinedOrganizationV1Event;
+  | OrganizationWithdrewFromBalanceV1Event
+  | OrganizationDepositedToBalanceV1Event
+  | OrganizationPaidWithCardV1Event;
+
+export type UserEvent =
+  | UserCreatedV1Event
+  | UserJoinedOrganizationV1Event
+  | UserUpdatedV1Event;

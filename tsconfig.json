@@ -22,11 +22,13 @@
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
     "typeRoots": [
       "./node_modules/@types"
     ],
     "outDir": "build",
-    "rootDir": "src"
+    "rootDir": "src",
+    "jsx": "react"
   },
   "include": ["src/**/*"],
   "exclude": [

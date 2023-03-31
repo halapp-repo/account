@@ -13,6 +13,8 @@ export class OrderToOrderViewModelMapper extends IMapper<Order, OrderVM> {
       Items: arg.Items,
       OrganizationId: arg.OrganizationId,
       PaymentMethodType: arg.PaymentMethodType,
+      TotalPrice: arg.TotalPrice,
+      ExtraCharges: arg.ExtraCharges,
     } as Order);
   }
 }

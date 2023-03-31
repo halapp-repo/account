@@ -6,6 +6,7 @@ export interface BuildConfig {
   readonly SESFromEmail: string;
   readonly SESCCEmail: string;
   readonly S3OrganizationEnrollmentEmailTemplate: string;
+  readonly BaseURL: string;
 
   readonly ShouldCreateDynamoAccountDB: boolean;
   readonly AccountDBName: string;
@@ -21,4 +22,6 @@ export interface BuildConfig {
   readonly AUTH_SQSOrganizationCreatedQueue: string;
   readonly SQSUserCreatedQueue: string;
   readonly SQSUserJoinedOrganizationQueue: string;
+  // S3
+  readonly S3HalAccountImagesBucketName: string;
 }

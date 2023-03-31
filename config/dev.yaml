@@ -7,7 +7,7 @@ SESCCEmail: furkan.ozdeslik@gmail.com
 S3OrganizationEnrollmentEmailTemplate: organization-enrollment.ejs
 # comes from HalApp-Auth 
 # comes from HalApp-Auth 
-
+BaseURL: "http://localhost:3000"
 
 ShouldCreateDynamoAccountDB: "false"
 AccountDBName: HalAccount
@@ -24,4 +24,6 @@ ORDER_SNSOrderTopic: "ORDER_OrderTopic"
 AUTH_SQSOrganizationCreatedQueue: "AUTH_OrganizationCreatedQueue"
 SQSUserCreatedQueue: "ACCOUNT_UserCreatedQueue"
 SQSUserJoinedOrganizationQueue: "ACCOUNT_UserJoinedOrganizationQueue"
+
+S3HalAccountImagesBucketName: "hal-account"
 
